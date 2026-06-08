@@ -1,0 +1,71 @@
+{
+  "expo": {
+    "ios": {
+      "infoPlist": {
+        "NSCameraUsageDescription": "We need access to your camera to take photos and videos.",
+        "NSContactsUsageDescription": "We need access to your contacts to use contacts.",
+        "NSCalendarsUsageDescription": "This app does not use your calendar.",
+        "NSRemindersUsageDescription": "This app does not use your reminders.",
+        "NSMicrophoneUsageDescription": "We need access to your microphone to record audio.",
+        "ITSAppUsesNonExemptEncryption": false,
+        "NSPhotoLibraryUsageDescription": "We need access to your photo library to select photos and videos.",
+        "NSLocationAlwaysUsageDescription": "We need access to your location to help you find your way.",
+        "NSPhotoLibraryAddUsageDescription": "We need access to your photo library to save photos and videos.",
+        "NSLocationWhenInUseUsageDescription": "We need access to your location to help you find your way.",
+        "NSSpeechRecognitionUsageDescription": "This app does not use your speech recognition.",
+        "NSCalendarsFullAccessUsageDescription": "This app does not use your calendar.",
+        "NSRemindersFullAccessUsageDescription": "This app does not use your reminders.",
+        "NSLocationAlwaysAndWhenInUseUsageDescription": "We need access to your location to help you find your way."
+      },
+      "supportsTablet": true,
+      "bundleIdentifier": "com.createinc.dd1d30137eae48a5bfc66f220bb3eb0d"
+    },
+    "web": {
+      "output": "static",
+      "bundler": "metro",
+      "favicon": "./assets/images/favicon.png"
+    },
+    "icon": "./assets/images/icon.png",
+    "name": "dd1d3013-7eae-48a5-bfc6-6f220bb3eb0d",
+    "slug": "dd1d3013-7eae-48a5-bfc6-6f220bb3eb0d",
+    "extra": {
+      "eas": {
+        "projectId": "97a4d099-b5ae-4e40-89fb-6bfc8debec22"
+      },
+      "router": {}
+    },
+    "owner": "create-inc",
+    "scheme": "travelguide.dd1d3013-7eae-48a5-bfc6-6f220bb3eb0d",
+    "android": {
+      "adaptiveIcon": {
+        "backgroundColor": "#ffffff",
+        "foregroundImage": "./assets/images/adaptive-icon.png"
+      }
+    },
+    "plugins": [
+      "expo-router",
+      [
+        "expo-splash-screen",
+        {
+          "image": "./assets/images/splash-icon.png",
+          "imageWidth": 200,
+          "resizeMode": "contain",
+          "backgroundColor": "#ffffff"
+        }
+      ]
+    ],
+    "updates": {
+      "url": "https://u.expo.dev/97a4d099-b5ae-4e40-89fb-6bfc8debec22"
+    },
+    "version": "1.0.0",
+    "experiments": {
+      "typedRoutes": true
+    },
+    "orientation": "portrait",
+    "newArchEnabled": true,
+    "runtimeVersion": {
+      "policy": "appVersion"
+    },
+    "userInterfaceStyle": "automatic"
+  }
+}
