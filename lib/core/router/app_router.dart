@@ -7,7 +7,11 @@ import '../../features/auth/auth_controller.dart';
 import '../../features/auth/forgot_password_screen.dart';
 import '../../features/auth/sign_in_screen.dart';
 import '../../features/auth/sign_up_screen.dart';
+import '../../features/booking/booking_flow_screen.dart';
+import '../../features/booking/booking_success_screen.dart';
 import '../../features/community/community_screen.dart';
+import '../../features/destination/destination_detail_screen.dart';
+import '../../features/experience/experience_detail_screen.dart';
 import '../../features/home/home_screen.dart';
 import '../../features/itineraries/itineraries_screen.dart';
 import '../../features/messages/messages_screen.dart';
@@ -16,6 +20,7 @@ import '../../features/onboarding/welcome_screen.dart';
 import '../../features/profile/profile_screen.dart';
 import '../../features/search/search_screen.dart';
 import '../../features/shell/tab_shell.dart';
+import '../../features/wishlist/wishlist_screen.dart';
 
 final appRouterProvider = Provider<GoRouter>((ref) {
   final authState = ref.watch(authStateProvider);
@@ -63,6 +68,34 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: '/tabs/search',
         builder: (context, state) => const SearchScreen(),
+      ),
+      GoRoute(
+        path: '/destination/:id',
+        builder: (context, state) =>
+            DestinationDetailScreen(destinationId: state.pathParameters['id']!),
+      ),
+      GoRoute(
+        path: '/experience/:id',
+        builder: (context, state) =>
+            ExperienceDetailScreen(experienceId: state.pathParameters['id']!),
+      ),
+      GoRoute(
+        path: '/booking-flow',
+        builder: (context, state) {
+          final args = state.extra as Map<String, dynamic>;
+          return BookingFlowScreen(
+            experienceId: args['experienceId'] as String,
+          );
+        },
+      ),
+      GoRoute(
+        path: '/booking-success/:bookingId',
+        builder: (context, state) =>
+            BookingSuccessScreen(bookingId: state.pathParameters['bookingId']!),
+      ),
+      GoRoute(
+        path: '/wishlist',
+        builder: (context, state) => const WishlistScreen(),
       ),
       ShellRoute(
         builder: (context, state, child) {

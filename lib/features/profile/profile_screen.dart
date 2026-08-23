@@ -34,12 +34,12 @@ class ProfileScreen extends ConsumerWidget {
             Text(email, style: AppTheme.poppins(fontWeight: FontWeight.w500)),
             const SizedBox(height: 24),
             const Divider(),
-            _ProfileMenuItem(icon: LucideIcons.heart, label: 'Wishlist'),
-            _ProfileMenuItem(icon: LucideIcons.map, label: 'My Itineraries'),
             _ProfileMenuItem(
-              icon: LucideIcons.bookmark,
-              label: 'Saved Destinations',
+              icon: LucideIcons.heart,
+              label: 'Wishlist',
+              onTap: () => context.push('/wishlist'),
             ),
+            _ProfileMenuItem(icon: LucideIcons.map, label: 'My Itineraries'),
             _ProfileMenuItem(icon: LucideIcons.settings, label: 'Settings'),
             const Divider(),
             const SizedBox(height: 12),
@@ -69,10 +69,11 @@ class ProfileScreen extends ConsumerWidget {
 }
 
 class _ProfileMenuItem extends StatelessWidget {
-  const _ProfileMenuItem({required this.icon, required this.label});
+  const _ProfileMenuItem({required this.icon, required this.label, this.onTap});
 
   final IconData icon;
   final String label;
+  final VoidCallback? onTap;
 
   @override
   Widget build(BuildContext context) {
@@ -81,11 +82,13 @@ class _ProfileMenuItem extends StatelessWidget {
       leading: Icon(icon, color: AppColors.textSecondary),
       title: Text(label, style: AppTheme.poppins()),
       trailing: const Icon(LucideIcons.chevronRight, size: 18),
-      onTap: () {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(const SnackBar(content: Text('Coming soon')));
-      },
+      onTap:
+          onTap ??
+          () {
+            ScaffoldMessenger.of(
+              context,
+            ).showSnackBar(const SnackBar(content: Text('Coming soon')));
+          },
     );
   }
 }

@@ -8,6 +8,7 @@ class Experience {
     this.category,
     this.price = 0,
     this.durationHours,
+    this.maxParticipants,
     this.rating,
   });
 
@@ -19,6 +20,7 @@ class Experience {
   final String? category;
   final double price;
   final double? durationHours;
+  final int? maxParticipants;
   final double? rating;
 
   factory Experience.fromJson(Map<String, dynamic> json) {
@@ -31,6 +33,7 @@ class Experience {
       category: json['category'] as String?,
       price: (json['price'] as num?)?.toDouble() ?? 0,
       durationHours: (json['duration_hours'] as num?)?.toDouble(),
+      maxParticipants: (json['max_participants'] as num?)?.toInt(),
       rating: (json['rating'] as num?)?.toDouble(),
     );
   }

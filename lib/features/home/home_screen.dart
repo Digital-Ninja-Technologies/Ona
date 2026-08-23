@@ -82,8 +82,11 @@ class HomeScreen extends ConsumerWidget {
                           scrollDirection: Axis.horizontal,
                           itemCount: items.length,
                           separatorBuilder: (_, _) => const SizedBox(width: 12),
-                          itemBuilder: (context, index) =>
-                              DestinationCard(destination: items[index]),
+                          itemBuilder: (context, index) => DestinationCard(
+                            destination: items[index],
+                            onTap: () =>
+                                context.push('/destination/${items[index].id}'),
+                          ),
                         ),
                   loading: () =>
                       const Center(child: CircularProgressIndicator()),
@@ -109,37 +112,43 @@ class HomeScreen extends ConsumerWidget {
                             .map(
                               (experience) => Padding(
                                 padding: const EdgeInsets.only(bottom: 12),
-                                child: Container(
-                                  padding: const EdgeInsets.all(16),
-                                  decoration: BoxDecoration(
-                                    color: AppColors.surface,
-                                    borderRadius: BorderRadius.circular(14),
+                                child: InkWell(
+                                  borderRadius: BorderRadius.circular(14),
+                                  onTap: () => context.push(
+                                    '/experience/${experience.id}',
                                   ),
-                                  child: Row(
-                                    children: [
-                                      Expanded(
-                                        child: Column(
-                                          crossAxisAlignment:
-                                              CrossAxisAlignment.start,
-                                          children: [
-                                            Text(
-                                              experience.title,
-                                              style: AppTheme.fredoka(
-                                                fontSize: 15,
+                                  child: Container(
+                                    padding: const EdgeInsets.all(16),
+                                    decoration: BoxDecoration(
+                                      color: AppColors.surface,
+                                      borderRadius: BorderRadius.circular(14),
+                                    ),
+                                    child: Row(
+                                      children: [
+                                        Expanded(
+                                          child: Column(
+                                            crossAxisAlignment:
+                                                CrossAxisAlignment.start,
+                                            children: [
+                                              Text(
+                                                experience.title,
+                                                style: AppTheme.fredoka(
+                                                  fontSize: 15,
+                                                ),
                                               ),
-                                            ),
-                                            const SizedBox(height: 4),
-                                            Text(
-                                              '\$${experience.price.toStringAsFixed(0)}',
-                                              style: AppTheme.poppins(
-                                                color: AppColors.primary,
-                                                fontWeight: FontWeight.w600,
+                                              const SizedBox(height: 4),
+                                              Text(
+                                                '\$${experience.price.toStringAsFixed(0)}',
+                                                style: AppTheme.poppins(
+                                                  color: AppColors.primary,
+                                                  fontWeight: FontWeight.w600,
+                                                ),
                                               ),
-                                            ),
-                                          ],
+                                            ],
+                                          ),
                                         ),
-                                      ),
-                                    ],
+                                      ],
+                                    ),
                                   ),
                                 ),
                               ),

@@ -1,6 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../features/auth/auth_controller.dart';
+import '../models/attraction.dart';
 import '../models/destination.dart';
 import '../models/experience.dart';
 
@@ -24,6 +25,28 @@ class DestinationsRepository {
         .toList();
   }
 
+  Future<Destination> fetchDestination(String id) async {
+    final client = _ref.read(supabaseProvider);
+    final response = await client
+        .from('destinations')
+        .select()
+        .eq('id', id)
+        .single();
+    return Destination.fromJson(response);
+  }
+
+  Future<List<Attraction>> fetchAttractions(String destinationId) async {
+    final client = _ref.read(supabaseProvider);
+    final response = await client
+        .from('attractions')
+        .select()
+        .eq('destination_id', destinationId)
+        .order('rating', ascending: false);
+    return (response as List)
+        .map((row) => Attraction.fromJson(row as Map<String, dynamic>))
+        .toList();
+  }
+
   Future<List<Experience>> fetchExperiences({int limit = 10}) async {
     final client = _ref.read(supabaseProvider);
     final response = await client
@@ -34,6 +57,16 @@ class DestinationsRepository {
     return (response as List)
         .map((row) => Experience.fromJson(row as Map<String, dynamic>))
         .toList();
+  }
+
+  Future<Experience> fetchExperience(String id) async {
+    final client = _ref.read(supabaseProvider);
+    final response = await client
+        .from('experiences')
+        .select()
+        .eq('id', id)
+        .single();
+    return Experience.fromJson(response);
   }
 }
 
@@ -47,6 +80,29 @@ final popularDestinationsProvider = FutureProvider<List<Destination>>((ref) {
 
 final popularExperiencesProvider = FutureProvider<List<Experience>>((ref) {
   return ref.watch(destinationsRepositoryProvider).fetchExperiences(limit: 5);
+});
+
+final destinationDetailProvider = FutureProvider.family<Destination, String>((
+  ref,
+  id,
+) {
+  return ref.watch(destinationsRepositoryProvider).fetchDestination(id);
+});
+
+final attractionsProvider = FutureProvider.family<List<Attraction>, String>((
+  ref,
+  destinationId,
+) {
+  return ref
+      .watch(destinationsRepositoryProvider)
+      .fetchAttractions(destinationId);
+});
+
+final experienceDetailProvider = FutureProvider.family<Experience, String>((
+  ref,
+  id,
+) {
+  return ref.watch(destinationsRepositoryProvider).fetchExperience(id);
 });
 
 final searchQueryProvider = StateProvider<String>((ref) => '');
