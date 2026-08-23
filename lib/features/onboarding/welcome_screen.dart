@@ -19,7 +19,7 @@ class WelcomeScreen extends StatelessWidget {
               Icon(Icons.travel_explore, size: 96, color: AppColors.primary),
               const SizedBox(height: 24),
               Text(
-                'TravelGuide',
+                'Ona',
                 style: AppTheme.fredoka(
                   fontSize: 32,
                   fontWeight: FontWeight.w600,

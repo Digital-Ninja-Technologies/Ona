@@ -1,6 +1,6 @@
-# TravelGuide
+# Ona
 
-Flutter rewrite of the TravelGuide app, backed by Supabase. This replaces the
+Flutter rewrite of the TravelGuide app (now Ona), backed by Supabase. This replaces the
 previous Expo/React Native + Hono API codebase — see `git log` for the
 original source if you need to reference it.
 

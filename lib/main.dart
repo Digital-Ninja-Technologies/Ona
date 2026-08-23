@@ -17,11 +17,11 @@ Future<void> main() async {
     );
   }
 
-  runApp(const ProviderScope(child: TravelGuideApp()));
+  runApp(const ProviderScope(child: OnaApp()));
 }
 
-class TravelGuideApp extends ConsumerWidget {
-  const TravelGuideApp({super.key});
+class OnaApp extends ConsumerWidget {
+  const OnaApp({super.key});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -34,7 +34,7 @@ class TravelGuideApp extends ConsumerWidget {
 
     final router = ref.watch(appRouterProvider);
     return MaterialApp.router(
-      title: 'TravelGuide',
+      title: 'Ona',
       debugShowCheckedModeBanner: false,
       theme: AppTheme.light(),
       routerConfig: router,
