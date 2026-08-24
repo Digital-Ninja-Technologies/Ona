@@ -22,6 +22,7 @@ class BookingsRepository {
     required int numParticipants,
     required double totalPrice,
     required double commissionAmount,
+    String paymentStatus = 'pending',
   }) async {
     final client = _ref.read(supabaseProvider);
     final response = await client
@@ -33,6 +34,7 @@ class BookingsRepository {
           'num_participants': numParticipants,
           'total_price': totalPrice,
           'commission_amount': commissionAmount,
+          'payment_status': paymentStatus,
         })
         .select('id')
         .single();

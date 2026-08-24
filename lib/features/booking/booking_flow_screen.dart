@@ -23,6 +23,37 @@ class _BookingFlowScreenState extends ConsumerState<BookingFlowScreen> {
   int _participants = 1;
   bool _isSubmitting = false;
 
+  final _cardNameController = TextEditingController();
+  final _cardNumberController = TextEditingController();
+  final _cardExpiryController = TextEditingController();
+  final _cardCvvController = TextEditingController();
+
+  @override
+  void dispose() {
+    _cardNameController.dispose();
+    _cardNumberController.dispose();
+    _cardExpiryController.dispose();
+    _cardCvvController.dispose();
+    super.dispose();
+  }
+
+  String? _validatePayment() {
+    if (_cardNameController.text.trim().isEmpty) {
+      return 'Enter the name on the card.';
+    }
+    final digits = _cardNumberController.text.replaceAll(' ', '');
+    if (digits.length < 15 || digits.length > 16 || int.tryParse(digits) == null) {
+      return 'Enter a valid card number.';
+    }
+    if (!RegExp(r'^\d{2}/\d{2}$').hasMatch(_cardExpiryController.text.trim())) {
+      return 'Enter expiry as MM/YY.';
+    }
+    if (!RegExp(r'^\d{3,4}$').hasMatch(_cardCvvController.text.trim())) {
+      return 'Enter a valid CVV.';
+    }
+    return null;
+  }
+
   Future<void> _pickDate() async {
     final picked = await showDatePicker(
       context: context,
@@ -34,10 +65,21 @@ class _BookingFlowScreenState extends ConsumerState<BookingFlowScreen> {
   }
 
   Future<void> _confirmBooking(double price) async {
+    final paymentError = _validatePayment();
+    if (paymentError != null) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(paymentError)));
+      return;
+    }
+
     setState(() => _isSubmitting = true);
     final totalPrice = price * _participants;
     final commission = totalPrice * 0.15;
     try {
+      // Simulates a payment processor round-trip. No real charge is made —
+      // this app has no payment gateway wired up.
+      await Future.delayed(const Duration(milliseconds: 900));
       final bookingId = await ref
           .read(bookingsRepositoryProvider)
           .createBooking(
@@ -46,6 +88,7 @@ class _BookingFlowScreenState extends ConsumerState<BookingFlowScreen> {
             numParticipants: _participants,
             totalPrice: totalPrice,
             commissionAmount: commission,
+            paymentStatus: 'paid',
           );
       if (mounted) context.go('/booking-success/$bookingId');
     } catch (e) {
@@ -183,7 +226,64 @@ class _BookingFlowScreenState extends ConsumerState<BookingFlowScreen> {
                           ],
                         ),
                       ),
-                      const SizedBox(height: 16),
+                      const SizedBox(height: 24),
+                      _SectionHeader(
+                        icon: LucideIcons.creditCard,
+                        title: 'Payment Details',
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
+                        'This is a simulated payment for demo purposes — no '
+                        'real charge is made.',
+                        style: AppTheme.poppins(
+                          fontSize: 12,
+                          color: AppColors.textSecondary,
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                      TextField(
+                        controller: _cardNameController,
+                        decoration: const InputDecoration(
+                          hintText: 'Name on card',
+                        ),
+                        textCapitalization: TextCapitalization.words,
+                      ),
+                      const SizedBox(height: 12),
+                      TextField(
+                        controller: _cardNumberController,
+                        decoration: const InputDecoration(
+                          hintText: 'Card number',
+                        ),
+                        keyboardType: TextInputType.number,
+                        maxLength: 19,
+                      ),
+                      Row(
+                        children: [
+                          Expanded(
+                            child: TextField(
+                              controller: _cardExpiryController,
+                              decoration: const InputDecoration(
+                                hintText: 'MM/YY',
+                              ),
+                              keyboardType: TextInputType.number,
+                              maxLength: 5,
+                            ),
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: TextField(
+                              controller: _cardCvvController,
+                              decoration: const InputDecoration(
+                                hintText: 'CVV',
+                              ),
+                              keyboardType: TextInputType.number,
+                              obscureText: true,
+                              maxLength: 4,
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 8),
                       Text(
                         'By confirming this booking, you agree to our Terms of '
                         'Service and Cancellation Policy. You can cancel free of '

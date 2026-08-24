@@ -39,7 +39,21 @@ class ProfileScreen extends ConsumerWidget {
               label: 'Wishlist',
               onTap: () => context.push('/wishlist'),
             ),
-            _ProfileMenuItem(icon: LucideIcons.map, label: 'My Itineraries'),
+            _ProfileMenuItem(
+              icon: LucideIcons.map,
+              label: 'My Itineraries',
+              onTap: () => context.go('/tabs/itineraries'),
+            ),
+            _ProfileMenuItem(
+              icon: LucideIcons.compass,
+              label: 'Travel Essentials',
+              onTap: () => context.push('/essentials'),
+            ),
+            _ProfileMenuItem(
+              icon: LucideIcons.sparkles,
+              label: 'Ask Ona AI',
+              onTap: () => context.push('/ai-assistant'),
+            ),
             _ProfileMenuItem(icon: LucideIcons.settings, label: 'Settings'),
             const Divider(),
             const SizedBox(height: 12),

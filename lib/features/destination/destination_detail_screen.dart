@@ -6,6 +6,7 @@ import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 import '../../core/data/bookings_repository.dart';
 import '../../core/data/destinations_repository.dart';
+import '../../core/data/reviews_repository.dart';
 import '../../core/models/attraction.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_theme.dart';
@@ -196,10 +197,13 @@ class DestinationDetailScreen extends ConsumerWidget {
                     _SectionTitle('Reviews'),
                     const SizedBox(height: 8),
                     OutlinedButton(
-                      onPressed: () =>
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(content: Text('Coming soon')),
-                          ),
+                      onPressed: () => context.push(
+                        '/reviews',
+                        extra: {
+                          'target': ReviewTarget.destination(destinationId),
+                          'title': destination.name,
+                        },
+                      ),
                       child: const Text('Write a Review'),
                     ),
                     const SizedBox(height: 20),
