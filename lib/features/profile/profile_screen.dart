@@ -51,7 +51,7 @@ class ProfileScreen extends ConsumerWidget {
             ),
             _ProfileMenuItem(
               icon: LucideIcons.sparkles,
-              label: 'Ask Ona AI',
+              label: 'Ask Ọ̀nà AI',
               onTap: () => context.push('/ai-assistant'),
             ),
             _ProfileMenuItem(icon: LucideIcons.settings, label: 'Settings'),

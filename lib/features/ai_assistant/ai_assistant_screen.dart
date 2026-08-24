@@ -27,7 +27,7 @@ class _AiAssistantScreenState extends ConsumerState<AiAssistantScreen> {
     const _Message(
       role: 'assistant',
       content:
-          "Hi! I'm your Ona travel assistant. I can help you discover "
+          "Hi! I'm your Ọ̀nà travel assistant. I can help you discover "
           "destinations, plan itineraries, find restaurants and hotels, "
           "and answer travel questions. Where would you like to explore?",
     ),
@@ -97,7 +97,7 @@ class _AiAssistantScreenState extends ConsumerState<AiAssistantScreen> {
           children: [
             const Icon(LucideIcons.sparkles, color: AppColors.primary, size: 20),
             const SizedBox(width: 8),
-            Text('Ona AI', style: AppTheme.fredoka(fontSize: 18)),
+            Text('Ọ̀nà AI', style: AppTheme.fredoka(fontSize: 18)),
           ],
         ),
       ),

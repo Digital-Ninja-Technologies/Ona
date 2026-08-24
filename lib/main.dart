@@ -34,7 +34,7 @@ class OnaApp extends ConsumerWidget {
 
     final router = ref.watch(appRouterProvider);
     return MaterialApp.router(
-      title: 'Ona',
+      title: 'Ọ̀nà',
       debugShowCheckedModeBanner: false,
       theme: AppTheme.light(),
       routerConfig: router,
