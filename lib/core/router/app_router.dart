@@ -34,6 +34,7 @@ import '../../features/profile/profile_screen.dart';
 import '../../features/reviews/reviews_screen.dart';
 import '../../features/search/search_screen.dart';
 import '../../features/shell/tab_shell.dart';
+import '../../features/splash/splash_screen.dart';
 import '../../features/wishlist/wishlist_screen.dart';
 import '../data/reviews_repository.dart';
 
@@ -41,7 +42,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
   final authState = ref.watch(authStateProvider);
 
   return GoRouter(
-    initialLocation: '/',
+    initialLocation: '/splash',
     redirect: (context, state) {
       final isSignedIn =
           authState.valueOrNull?.session != null ||
@@ -53,6 +54,9 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       if (state.matchedLocation == '/') {
         return isSignedIn ? '/tabs/home' : '/onboarding/welcome';
       }
+      if (state.matchedLocation == '/splash') {
+        return null;
+      }
       if (!isSignedIn && !goingToAuthOrOnboarding) {
         return '/onboarding/welcome';
       }
@@ -60,6 +64,10 @@ final appRouterProvider = Provider<GoRouter>((ref) {
     },
     routes: [
       GoRoute(path: '/', builder: (context, state) => const SizedBox.shrink()),
+      GoRoute(
+        path: '/splash',
+        builder: (context, state) => const SplashScreen(),
+      ),
       GoRoute(
         path: '/onboarding/welcome',
         builder: (context, state) => const WelcomeScreen(),

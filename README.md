@@ -19,8 +19,9 @@ This covers the full migration, **Stage 1 through Stage 3**:
 - **Stage 4**: the Ọ̀nà brand redesign — the official palette (Deep Green,
   Route Green, Sand, Cream, Charcoal, Way Gold), Space Grotesk/Outfit
   typography, a Material 3 nav bar, the real logo/mark throughout the app,
-  and rebranded app icons + launch screens on both platforms. See
-  `assets/brand/` and `lib/core/theme/`.
+  rebranded app icons + launch screens on both platforms, and an animated
+  video splash screen (the brand's logo-build animation) as the app's first
+  frame. See `assets/brand/` and `lib/core/theme/`.
 
 No screen is a placeholder anymore. Two features call out to external
 services and need extra setup beyond the Supabase schema — see
