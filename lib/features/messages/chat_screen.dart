@@ -25,6 +25,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
   final _scrollController = ScrollController();
   Timer? _pollTimer;
   bool _sending = false;
+  int _lastMessageCount = 0;
 
   @override
   void initState() {
@@ -79,8 +80,12 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
   @override
   Widget build(BuildContext context) {
     final me = ref.watch(currentUserProvider);
-    final otherUserAsync = ref.watch(chatOtherUserProvider(widget.conversationId));
-    final messagesAsync = ref.watch(chatMessagesProvider(widget.conversationId));
+    final otherUserAsync = ref.watch(
+      chatOtherUserProvider(widget.conversationId),
+    );
+    final messagesAsync = ref.watch(
+      chatMessagesProvider(widget.conversationId),
+    );
 
     return Scaffold(
       appBar: AppBar(
@@ -94,8 +99,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
           children: [
             Expanded(
               child: messagesAsync.when(
-                loading: () =>
-                    const Center(child: CircularProgressIndicator()),
+                loading: () => const Center(child: CircularProgressIndicator()),
                 error: (error, _) => Center(
                   child: Text(
                     'Could not load messages.',
@@ -111,7 +115,10 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                       ),
                     );
                   }
-                  _scrollToBottom();
+                  if (messages.length != _lastMessageCount) {
+                    _lastMessageCount = messages.length;
+                    _scrollToBottom();
+                  }
                   return ListView.builder(
                     controller: _scrollController,
                     padding: const EdgeInsets.all(16),
@@ -182,7 +189,9 @@ class _MessageBubble extends StatelessWidget {
           children: [
             Text(
               message.content,
-              style: AppTheme.poppins(color: isMe ? Colors.white : AppColors.text),
+              style: AppTheme.poppins(
+                color: isMe ? Colors.white : AppColors.text,
+              ),
             ),
             const SizedBox(height: 2),
             Text(

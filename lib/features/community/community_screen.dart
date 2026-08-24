@@ -135,9 +135,20 @@ class _PostCard extends ConsumerWidget {
       context.push('/auth/signin');
       return;
     }
-    final nextLiked = !post.isLikedByMe;
-    await ref.read(communityRepositoryProvider).setLiked(post.id, nextLiked);
-    ref.invalidate(communityPostsProvider);
+    final togglingNotifier = ref.read(likeTogglingProvider.notifier);
+    if (togglingNotifier.state.contains(post.id)) return;
+    togglingNotifier.state = {...togglingNotifier.state, post.id};
+    try {
+      final nextLiked = !post.isLikedByMe;
+      await ref.read(communityRepositoryProvider).setLiked(post.id, nextLiked);
+      ref.invalidate(communityPostsProvider);
+    } catch (_) {
+      // The DB is the source of truth either way — a benign race (e.g. a
+      // duplicate-key error from an overlapping toggle) just means the
+      // refetch below will show whatever the server actually has.
+    } finally {
+      togglingNotifier.state = {...togglingNotifier.state}..remove(post.id);
+    }
   }
 
   @override
@@ -219,7 +230,9 @@ class _PostCard extends ConsumerWidget {
           Row(
             children: [
               InkWell(
-                onTap: () => _toggleLike(ref, context),
+                onTap: ref.watch(likeTogglingProvider).contains(post.id)
+                    ? null
+                    : () => _toggleLike(ref, context),
                 child: Row(
                   children: [
                     Icon(

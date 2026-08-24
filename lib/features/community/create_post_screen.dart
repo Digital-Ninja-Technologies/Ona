@@ -35,7 +35,9 @@ class _CreatePostScreenState extends ConsumerState<CreatePostScreen> {
     );
     if (file == null) return;
     final bytes = await file.readAsBytes();
-    final extension = file.name.contains('.') ? file.name.split('.').last : 'jpg';
+    final extension = file.name.contains('.')
+        ? file.name.split('.').last
+        : 'jpg';
     setState(() => _pickedImage = (bytes: bytes, extension: extension));
   }
 
@@ -52,7 +54,10 @@ class _CreatePostScreenState extends ConsumerState<CreatePostScreen> {
       if (_pickedImage != null) {
         imageUrl = await ref
             .read(storageRepositoryProvider)
-            .uploadImage(_pickedImage!.bytes, extension: _pickedImage!.extension);
+            .uploadImage(
+              _pickedImage!.bytes,
+              extension: _pickedImage!.extension,
+            );
       }
       await ref
           .read(communityRepositoryProvider)

@@ -7,6 +7,7 @@ import '../../features/agents/agents_screen.dart';
 import '../../features/ai_assistant/ai_assistant_screen.dart';
 import '../../features/auth/auth_controller.dart';
 import '../../features/auth/forgot_password_screen.dart';
+import '../../features/auth/reset_password_screen.dart';
 import '../../features/auth/sign_in_screen.dart';
 import '../../features/auth/sign_up_screen.dart';
 import '../../features/booking/booking_flow_screen.dart';
@@ -39,23 +40,25 @@ import '../../features/wishlist/wishlist_screen.dart';
 import '../data/reviews_repository.dart';
 
 final appRouterProvider = Provider<GoRouter>((ref) {
-  final authState = ref.watch(authStateProvider);
+  final isSignedIn = ref.watch(isSignedInProvider);
+  final isPasswordRecovery = ref.watch(isPasswordRecoveryProvider);
 
   return GoRouter(
     initialLocation: '/splash',
     redirect: (context, state) {
-      final isSignedIn =
-          authState.valueOrNull?.session != null ||
-          ref.read(currentUserProvider) != null;
       final goingToAuthOrOnboarding =
           state.matchedLocation.startsWith('/auth') ||
           state.matchedLocation.startsWith('/onboarding');
 
-      if (state.matchedLocation == '/') {
-        return isSignedIn ? '/tabs/home' : '/onboarding/welcome';
-      }
       if (state.matchedLocation == '/splash') {
         return null;
+      }
+      if (isPasswordRecovery &&
+          state.matchedLocation != '/auth/reset-password') {
+        return '/auth/reset-password';
+      }
+      if (state.matchedLocation == '/') {
+        return isSignedIn ? '/tabs/home' : '/onboarding/welcome';
       }
       if (!isSignedIn && !goingToAuthOrOnboarding) {
         return '/onboarding/welcome';
@@ -89,6 +92,10 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         builder: (context, state) => const ForgotPasswordScreen(),
       ),
       GoRoute(
+        path: '/auth/reset-password',
+        builder: (context, state) => const ResetPasswordScreen(),
+      ),
+      GoRoute(
         path: '/tabs/search',
         builder: (context, state) => const SearchScreen(),
       ),
@@ -104,8 +111,15 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       ),
       GoRoute(
         path: '/booking-flow',
+        redirect: (context, state) {
+          final args = state.extra;
+          if (args is! Map || args['experienceId'] is! String) {
+            return '/tabs/home';
+          }
+          return null;
+        },
         builder: (context, state) {
-          final args = state.extra as Map<String, dynamic>;
+          final args = state.extra as Map;
           return BookingFlowScreen(
             experienceId: args['experienceId'] as String,
           );
@@ -122,8 +136,17 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       ),
       GoRoute(
         path: '/reviews',
+        redirect: (context, state) {
+          final args = state.extra;
+          if (args is! Map ||
+              args['target'] is! ReviewTarget ||
+              args['title'] is! String) {
+            return '/tabs/home';
+          }
+          return null;
+        },
         builder: (context, state) {
-          final args = state.extra as Map<String, dynamic>;
+          final args = state.extra as Map;
           return ReviewsScreen(
             target: args['target'] as ReviewTarget,
             title: args['title'] as String,

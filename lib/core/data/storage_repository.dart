@@ -12,7 +12,10 @@ class StorageRepository {
 
   final Ref _ref;
 
-  Future<String> uploadImage(Uint8List bytes, {required String extension}) async {
+  Future<String> uploadImage(
+    Uint8List bytes, {
+    required String extension,
+  }) async {
     final client = _ref.read(supabaseProvider);
     final userId = client.auth.currentUser?.id ?? 'anonymous';
     final fileName =

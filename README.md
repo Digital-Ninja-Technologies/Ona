@@ -74,9 +74,31 @@ editor in the Supabase dashboard, **in numeric order**:
   profiles; adds a `payment_status` column to `bookings`; creates a public
   `uploads` Storage bucket (with RLS) for review/post photos; and seeds a
   handful of sample travel agents.
+- `0004_fixes.sql` adds a unique index on `conversations` so two
+  near-simultaneous "message this person for the first time" requests
+  can't create duplicate conversation rows for the same pair of users.
 
 In **Authentication → Providers**, email/password sign-up should already be
-enabled by default.
+enabled by default. If **Confirm email** is also on (the default for new
+projects), a signed-up user won't have a session until they confirm — the
+app already handles this (shows a "check your email" screen instead of
+bouncing them around), no action needed here.
+
+### Password reset deep link
+
+Forgot-password emails link back into the app via the custom URL scheme
+`ona://reset-callback` (already registered natively for both Android and
+iOS — see `android/app/src/main/AndroidManifest.xml` and
+`ios/Runner/Info.plist`). For the link to actually work, add it to
+**Authentication → URL Configuration → Redirect URLs** in the Supabase
+dashboard:
+
+```
+ona://reset-callback
+```
+
+Without this, Supabase will reject the redirect and the reset email's link
+won't return the user to the app.
 
 ## 2. Configure the app with your project credentials
 

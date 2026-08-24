@@ -40,9 +40,7 @@ class AgentsScreen extends ConsumerWidget {
                   const SizedBox(height: 12),
                   Row(
                     children: _ratingFilters.map((rating) {
-                      final label = rating == null
-                          ? 'All'
-                          : '$rating+ ★';
+                      final label = rating == null ? 'All' : '$rating+ ★';
                       final selected = minRating == rating;
                       return Padding(
                         padding: const EdgeInsets.only(right: 8),

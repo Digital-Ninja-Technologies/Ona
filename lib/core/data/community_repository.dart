@@ -10,8 +10,7 @@ class CommunityRepository {
 
   final Ref _ref;
 
-  String? get _userId =>
-      _ref.read(supabaseProvider).auth.currentUser?.id;
+  String? get _userId => _ref.read(supabaseProvider).auth.currentUser?.id;
 
   Future<List<CommunityPost>> fetchPosts({String? type, int limit = 50}) async {
     final client = _ref.read(supabaseProvider);
@@ -35,9 +34,9 @@ class CommunityRepository {
           .select('post_id')
           .eq('user_id', userId)
           .inFilter('post_id', postIds);
-      likedPostIds = List<Map<String, dynamic>>.from(likeRows as List)
-          .map((row) => row['post_id'] as String)
-          .toSet();
+      likedPostIds = List<Map<String, dynamic>>.from(
+        likeRows as List,
+      ).map((row) => row['post_id'] as String).toSet();
     }
 
     return postRows.map((row) {
@@ -129,12 +128,17 @@ final communityRepositoryProvider = Provider<CommunityRepository>((ref) {
 
 final postTypeFilterProvider = StateProvider<String>((ref) => 'all');
 
-final communityPostsProvider = FutureProvider.autoDispose<List<CommunityPost>>(
-  (ref) {
-    final type = ref.watch(postTypeFilterProvider);
-    return ref.watch(communityRepositoryProvider).fetchPosts(type: type);
-  },
-);
+/// Post ids with a like toggle currently in flight — used to disable the
+/// like button mid-request so a fast double-tap can't race two writes for
+/// the same post and hit the post_likes primary key.
+final likeTogglingProvider = StateProvider<Set<String>>((ref) => {});
+
+final communityPostsProvider = FutureProvider.autoDispose<List<CommunityPost>>((
+  ref,
+) {
+  final type = ref.watch(postTypeFilterProvider);
+  return ref.watch(communityRepositoryProvider).fetchPosts(type: type);
+});
 
 final postCommentsProvider = FutureProvider.autoDispose
     .family<List<PostComment>, String>((ref, postId) {

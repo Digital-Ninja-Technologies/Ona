@@ -22,6 +22,9 @@ Future<Map<String, PublicProfile>> fetchPublicProfiles(
   return {for (final profile in profiles) profile.id: profile};
 }
 
-PublicProfile profileOrFallback(Map<String, PublicProfile> profiles, String id) {
+PublicProfile profileOrFallback(
+  Map<String, PublicProfile> profiles,
+  String id,
+) {
   return profiles[id] ?? PublicProfile(id: id);
 }

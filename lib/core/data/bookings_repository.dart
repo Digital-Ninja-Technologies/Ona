@@ -110,3 +110,8 @@ final savedDestinationsProvider = FutureProvider.autoDispose<List<Destination>>(
     return ref.watch(bookingsRepositoryProvider).fetchSavedDestinations();
   },
 );
+
+/// Destination ids with a wishlist toggle currently in flight — mirrors
+/// [likeTogglingProvider] to stop a fast double-tap from racing two writes
+/// for the same destination and hitting the saved_destinations primary key.
+final saveTogglingProvider = StateProvider<Set<String>>((ref) => {});

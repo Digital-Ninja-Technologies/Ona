@@ -81,8 +81,7 @@ class PackingChecklistScreen extends StatefulWidget {
   const PackingChecklistScreen({super.key});
 
   @override
-  State<PackingChecklistScreen> createState() =>
-      _PackingChecklistScreenState();
+  State<PackingChecklistScreen> createState() => _PackingChecklistScreenState();
 }
 
 class _PackingChecklistScreenState extends State<PackingChecklistScreen> {
@@ -183,11 +182,12 @@ class _ChecklistRow extends StatelessWidget {
             Expanded(
               child: Text(
                 label,
-                style: AppTheme.poppins(
-                  color: checked ? AppColors.textSecondary : AppColors.text,
-                ).copyWith(
-                  decoration: checked ? TextDecoration.lineThrough : null,
-                ),
+                style:
+                    AppTheme.poppins(
+                      color: checked ? AppColors.textSecondary : AppColors.text,
+                    ).copyWith(
+                      decoration: checked ? TextDecoration.lineThrough : null,
+                    ),
               ),
             ),
           ],
