@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 
+import '../../core/theme/app_colors.dart';
+
 const _tabRoutes = [
   '/tabs/home',
   '/tabs/agents',
@@ -11,20 +13,19 @@ const _tabRoutes = [
   '/tabs/profile',
 ];
 
-const _tabDestinations = [
-  NavigationDestination(icon: Icon(LucideIcons.compass), label: 'Explore'),
-  NavigationDestination(icon: Icon(LucideIcons.userCheck), label: 'Agents'),
-  NavigationDestination(icon: Icon(LucideIcons.map), label: 'Itineraries'),
-  NavigationDestination(
-    icon: Icon(LucideIcons.messageCircle),
-    label: 'Messages',
-  ),
-  NavigationDestination(icon: Icon(LucideIcons.users), label: 'Community'),
-  NavigationDestination(icon: Icon(LucideIcons.user), label: 'Profile'),
+const _tabIcons = [
+  LucideIcons.compass,
+  LucideIcons.userCheck,
+  LucideIcons.map,
+  LucideIcons.messageCircle,
+  LucideIcons.users,
+  LucideIcons.user,
 ];
 
 /// Bottom-tab shell matching the original app's six visible tabs
 /// (Search is reachable from Home but isn't a bottom-tab destination).
+///
+/// Icon-only, no labels or selection pill — an Instagram-style tab bar.
 class TabShell extends StatelessWidget {
   const TabShell({super.key, required this.child, required this.location});
 
@@ -38,12 +39,61 @@ class TabShell extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final currentIndex = _currentIndex;
     return Scaffold(
       body: child,
-      bottomNavigationBar: NavigationBar(
-        selectedIndex: _currentIndex,
-        destinations: _tabDestinations,
-        onDestinationSelected: (index) => context.go(_tabRoutes[index]),
+      bottomNavigationBar: DecoratedBox(
+        decoration: const BoxDecoration(
+          color: AppColors.background,
+          border: Border(top: BorderSide(color: AppColors.border, width: 1)),
+        ),
+        child: SafeArea(
+          top: false,
+          child: SizedBox(
+            height: 52,
+            child: Row(
+              children: [
+                for (var i = 0; i < _tabIcons.length; i++)
+                  Expanded(
+                    child: _TabIconButton(
+                      icon: _tabIcons[i],
+                      selected: i == currentIndex,
+                      onTap: () => context.go(_tabRoutes[i]),
+                    ),
+                  ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _TabIconButton extends StatelessWidget {
+  const _TabIconButton({
+    required this.icon,
+    required this.selected,
+    required this.onTap,
+  });
+
+  final IconData icon;
+  final bool selected;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return InkResponse(
+      onTap: onTap,
+      radius: 28,
+      containedInkWell: true,
+      highlightShape: BoxShape.circle,
+      child: Center(
+        child: Icon(
+          icon,
+          size: 26,
+          color: selected ? AppColors.text : AppColors.textSecondary,
+        ),
       ),
     );
   }
