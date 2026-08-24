@@ -31,11 +31,12 @@ class HomeScreen extends ConsumerWidget {
           child: ListView(
             padding: const EdgeInsets.all(20),
             children: [
-              Text(
-                'Ona',
-                style: AppTheme.fredoka(
-                  fontSize: 26,
-                  fontWeight: FontWeight.w600,
+              Align(
+                alignment: Alignment.centerLeft,
+                child: Image.asset(
+                  'assets/brand/ona-logo.png',
+                  height: 30,
+                  fit: BoxFit.contain,
                 ),
               ),
               const SizedBox(height: 16),

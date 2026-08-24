@@ -66,6 +66,13 @@ class _SignInScreenState extends ConsumerState<SignInScreen> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 const SizedBox(height: 48),
+                Image.asset(
+                  'assets/brand/ona-mark-on-dark.png',
+                  width: 40,
+                  height: 44,
+                  fit: BoxFit.contain,
+                ),
+                const SizedBox(height: 20),
                 Text(
                   'Welcome back',
                   style: AppTheme.fredoka(

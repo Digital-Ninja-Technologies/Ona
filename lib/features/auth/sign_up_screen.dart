@@ -68,6 +68,13 @@ class _SignUpScreenState extends ConsumerState<SignUpScreen> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 const SizedBox(height: 32),
+                Image.asset(
+                  'assets/brand/ona-mark-on-dark.png',
+                  width: 40,
+                  height: 44,
+                  fit: BoxFit.contain,
+                ),
+                const SizedBox(height: 20),
                 Text(
                   'Create your account',
                   style: AppTheme.fredoka(

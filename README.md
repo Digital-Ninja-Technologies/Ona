@@ -16,6 +16,11 @@ This covers the full migration, **Stage 1 through Stage 3**:
   step in the booking flow, and offline travel-essentials tools (currency
   converter, packing checklist, cultural etiquette, safety tips, emergency
   contacts).
+- **Stage 4**: the Ọ̀nà brand redesign — the official palette (Deep Green,
+  Route Green, Sand, Cream, Charcoal, Way Gold), Space Grotesk/Outfit
+  typography, a Material 3 nav bar, the real logo/mark throughout the app,
+  and rebranded app icons + launch screens on both platforms. See
+  `assets/brand/` and `lib/core/theme/`.
 
 No screen is a placeholder anymore. Two features call out to external
 services and need extra setup beyond the Supabase schema — see
@@ -161,6 +166,9 @@ lib/
     router/    go_router configuration
     theme/     Colors, text styles
     widgets/   Shared widgets (destination card)
+assets/
+  brand/     Ọ̀nà logo/mark PNGs (light- and dark-background variants),
+             declared as a Flutter asset directory in pubspec.yaml
   features/
     auth/           Sign in, sign up, forgot password
     onboarding/     Welcome, interests

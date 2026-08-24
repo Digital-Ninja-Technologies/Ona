@@ -54,10 +54,11 @@ class _SupabaseNotConfiguredScreen extends StatelessWidget {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              const Icon(
-                Icons.cloud_off,
-                size: 48,
-                color: AppColors.textSecondary,
+              Image.asset(
+                'assets/brand/ona-mark.png',
+                width: 56,
+                height: 56,
+                fit: BoxFit.contain,
               ),
               const SizedBox(height: 16),
               Text(

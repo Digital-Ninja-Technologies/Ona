@@ -61,7 +61,7 @@ const _categories = [
   _SafetyCategory(
     title: 'Accommodation',
     icon: Icons.home_outlined,
-    color: Color(0xFF5856D6),
+    color: AppColors.primaryDark,
     tips: [
       'Use hotel safes for valuables and documents',
       'Check door locks and windows upon arrival',

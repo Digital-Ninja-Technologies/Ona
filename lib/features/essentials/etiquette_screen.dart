@@ -75,7 +75,7 @@ const _categories = [
   _EtiquetteCategory(
     title: 'Social Interactions',
     icon: LucideIcons.thumbsDown,
-    color: Color(0xFF5856D6),
+    color: AppColors.primaryDark,
     dos: [
       'Be patient and polite always',
       'Ask before taking photos of people',

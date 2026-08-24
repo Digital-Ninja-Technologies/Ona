@@ -27,23 +27,72 @@ class DestinationCard extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            ClipRRect(
-              borderRadius: BorderRadius.circular(16),
-              child: AspectRatio(
-                aspectRatio: 4 / 3,
-                child: destination.imageUrl != null
-                    ? CachedNetworkImage(
-                        imageUrl: destination.imageUrl!,
-                        fit: BoxFit.cover,
-                        placeholder: (context, url) =>
-                            Container(color: AppColors.surface),
-                        errorWidget: (context, url, error) =>
-                            Container(color: AppColors.surface),
-                      )
-                    : Container(color: AppColors.surface),
+            Container(
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(18),
+                boxShadow: [
+                  BoxShadow(
+                    color: AppColors.charcoal.withValues(alpha: 0.08),
+                    blurRadius: 12,
+                    offset: const Offset(0, 4),
+                  ),
+                ],
+              ),
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(18),
+                child: Stack(
+                  children: [
+                    AspectRatio(
+                      aspectRatio: 4 / 3,
+                      child: destination.imageUrl != null
+                          ? CachedNetworkImage(
+                              imageUrl: destination.imageUrl!,
+                              fit: BoxFit.cover,
+                              placeholder: (context, url) =>
+                                  Container(color: AppColors.surface),
+                              errorWidget: (context, url, error) =>
+                                  Container(color: AppColors.surface),
+                            )
+                          : Container(color: AppColors.surface),
+                    ),
+                    if (destination.rating != null)
+                      Positioned(
+                        top: 10,
+                        right: 10,
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 8,
+                            vertical: 4,
+                          ),
+                          decoration: BoxDecoration(
+                            color: AppColors.cream.withValues(alpha: 0.92),
+                            borderRadius: BorderRadius.circular(20),
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              const Icon(
+                                LucideIcons.star,
+                                size: 12,
+                                color: AppColors.gold,
+                              ),
+                              const SizedBox(width: 3),
+                              Text(
+                                destination.rating!.toStringAsFixed(1),
+                                style: AppTheme.poppins(
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                  ],
+                ),
               ),
             ),
-            const SizedBox(height: 8),
+            const SizedBox(height: 10),
             Text(
               destination.name,
               style: AppTheme.fredoka(
@@ -63,27 +112,33 @@ class DestinationCard extends StatelessWidget {
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
             ),
-            const SizedBox(height: 4),
-            Row(
-              children: [
-                const Icon(LucideIcons.star, size: 14, color: AppColors.orange),
-                const SizedBox(width: 4),
-                Text(
-                  destination.rating?.toStringAsFixed(1) ?? '—',
-                  style: AppTheme.poppins(fontSize: 12),
+            if (destination.rating == null || destination.priceRange != null)
+              Padding(
+                padding: const EdgeInsets.only(top: 4),
+                child: Row(
+                  children: [
+                    if (destination.rating == null) ...[
+                      const Icon(
+                        LucideIcons.star,
+                        size: 14,
+                        color: AppColors.gold,
+                      ),
+                      const SizedBox(width: 4),
+                      Text('—', style: AppTheme.poppins(fontSize: 12)),
+                      if (destination.priceRange != null)
+                        const SizedBox(width: 8),
+                    ],
+                    if (destination.priceRange != null)
+                      Text(
+                        destination.priceRange!,
+                        style: AppTheme.poppins(
+                          fontSize: 12,
+                          color: AppColors.textSecondary,
+                        ),
+                      ),
+                  ],
                 ),
-                if (destination.priceRange != null) ...[
-                  const SizedBox(width: 8),
-                  Text(
-                    destination.priceRange!,
-                    style: AppTheme.poppins(
-                      fontSize: 12,
-                      color: AppColors.textSecondary,
-                    ),
-                  ),
-                ],
-              ],
-            ),
+              ),
           ],
         ),
       ),

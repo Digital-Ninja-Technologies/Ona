@@ -10,26 +10,35 @@ class WelcomeScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: AppColors.primaryDark,
       body: SafeArea(
         child: Padding(
           padding: const EdgeInsets.all(24),
           child: Column(
             children: [
               const Spacer(),
-              Icon(Icons.travel_explore, size: 96, color: AppColors.primary),
-              const SizedBox(height: 24),
+              Image.asset(
+                'assets/brand/ona-mark-on-dark.png',
+                width: 92,
+                height: 100,
+                fit: BoxFit.contain,
+              ),
+              const SizedBox(height: 20),
               Text(
-                'Ona',
+                'Ọ̀nà',
                 style: AppTheme.fredoka(
-                  fontSize: 32,
+                  fontSize: 34,
                   fontWeight: FontWeight.w600,
+                  color: AppColors.cream,
                 ),
                 textAlign: TextAlign.center,
               ),
               const SizedBox(height: 12),
               Text(
                 'Discover destinations, plan itineraries, and travel\nwith confidence — all in one place.',
-                style: AppTheme.poppins(color: AppColors.textSecondary),
+                style: AppTheme.poppins(
+                  color: AppColors.sand.withValues(alpha: 0.85),
+                ),
                 textAlign: TextAlign.center,
               ),
               const Spacer(),
@@ -37,6 +46,10 @@ class WelcomeScreen extends StatelessWidget {
                 width: double.infinity,
                 child: ElevatedButton(
                   onPressed: () => context.push('/auth/signup'),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppColors.gold,
+                    foregroundColor: AppColors.charcoal,
+                  ),
                   child: const Text('Get Started'),
                 ),
               ),
@@ -47,14 +60,20 @@ class WelcomeScreen extends StatelessWidget {
                   onPressed: () => context.push('/auth/signin'),
                   style: OutlinedButton.styleFrom(
                     padding: const EdgeInsets.symmetric(vertical: 16),
-                    side: const BorderSide(color: AppColors.border),
+                    foregroundColor: AppColors.cream,
+                    side: BorderSide(
+                      color: AppColors.sand.withValues(alpha: 0.4),
+                    ),
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(14),
                     ),
                   ),
                   child: Text(
                     'I already have an account',
-                    style: AppTheme.poppins(fontWeight: FontWeight.w500),
+                    style: AppTheme.poppins(
+                      fontWeight: FontWeight.w500,
+                      color: AppColors.cream,
+                    ),
                   ),
                 ),
               ),

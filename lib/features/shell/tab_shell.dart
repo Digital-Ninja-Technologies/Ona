@@ -11,16 +11,16 @@ const _tabRoutes = [
   '/tabs/profile',
 ];
 
-const _tabItems = [
-  BottomNavigationBarItem(icon: Icon(LucideIcons.compass), label: 'Explore'),
-  BottomNavigationBarItem(icon: Icon(LucideIcons.userCheck), label: 'Agents'),
-  BottomNavigationBarItem(icon: Icon(LucideIcons.map), label: 'Itineraries'),
-  BottomNavigationBarItem(
+const _tabDestinations = [
+  NavigationDestination(icon: Icon(LucideIcons.compass), label: 'Explore'),
+  NavigationDestination(icon: Icon(LucideIcons.userCheck), label: 'Agents'),
+  NavigationDestination(icon: Icon(LucideIcons.map), label: 'Itineraries'),
+  NavigationDestination(
     icon: Icon(LucideIcons.messageCircle),
     label: 'Messages',
   ),
-  BottomNavigationBarItem(icon: Icon(LucideIcons.users), label: 'Community'),
-  BottomNavigationBarItem(icon: Icon(LucideIcons.user), label: 'Profile'),
+  NavigationDestination(icon: Icon(LucideIcons.users), label: 'Community'),
+  NavigationDestination(icon: Icon(LucideIcons.user), label: 'Profile'),
 ];
 
 /// Bottom-tab shell matching the original app's six visible tabs
@@ -40,10 +40,10 @@ class TabShell extends StatelessWidget {
   Widget build(BuildContext context) {
     return Scaffold(
       body: child,
-      bottomNavigationBar: BottomNavigationBar(
-        currentIndex: _currentIndex,
-        items: _tabItems,
-        onTap: (index) => context.go(_tabRoutes[index]),
+      bottomNavigationBar: NavigationBar(
+        selectedIndex: _currentIndex,
+        destinations: _tabDestinations,
+        onDestinationSelected: (index) => context.go(_tabRoutes[index]),
       ),
     );
   }
