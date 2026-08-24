@@ -32,7 +32,7 @@ class HomeScreen extends ConsumerWidget {
             padding: const EdgeInsets.all(20),
             children: [
               Text(
-                'Ona',
+                'Ọ̀nà',
                 style: AppTheme.fredoka(
                   fontSize: 26,
                   fontWeight: FontWeight.w600,
