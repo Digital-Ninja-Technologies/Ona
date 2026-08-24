@@ -73,7 +73,7 @@ class HomeScreen extends ConsumerWidget {
               ),
               const SizedBox(height: 12),
               SizedBox(
-                height: 210,
+                height: 230,
                 child: destinations.when(
                   data: (items) => items.isEmpty
                       ? Center(
