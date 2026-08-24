@@ -16,8 +16,7 @@ class PostCommentsScreen extends ConsumerStatefulWidget {
   final String postId;
 
   @override
-  ConsumerState<PostCommentsScreen> createState() =>
-      _PostCommentsScreenState();
+  ConsumerState<PostCommentsScreen> createState() => _PostCommentsScreenState();
 }
 
 class _PostCommentsScreenState extends ConsumerState<PostCommentsScreen> {
@@ -67,8 +66,7 @@ class _PostCommentsScreenState extends ConsumerState<PostCommentsScreen> {
           children: [
             Expanded(
               child: commentsAsync.when(
-                loading: () =>
-                    const Center(child: CircularProgressIndicator()),
+                loading: () => const Center(child: CircularProgressIndicator()),
                 error: (error, _) => Center(
                   child: Text(
                     'Could not load comments.',

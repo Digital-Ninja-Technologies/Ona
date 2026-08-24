@@ -42,7 +42,9 @@ class _BookingFlowScreenState extends ConsumerState<BookingFlowScreen> {
       return 'Enter the name on the card.';
     }
     final digits = _cardNumberController.text.replaceAll(' ', '');
-    if (digits.length < 15 || digits.length > 16 || int.tryParse(digits) == null) {
+    if (digits.length < 15 ||
+        digits.length > 16 ||
+        int.tryParse(digits) == null) {
       return 'Enter a valid card number.';
     }
     if (!RegExp(r'^\d{2}/\d{2}$').hasMatch(_cardExpiryController.text.trim())) {

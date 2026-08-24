@@ -30,6 +30,17 @@
 	<string>Ona uses your photo library to attach photos to reviews and community posts.</string>
 	<key>NSCameraUsageDescription</key>
 	<string>Ona uses your camera to take photos for reviews and community posts.</string>
+	<key>CFBundleURLTypes</key>
+	<array>
+		<dict>
+			<key>CFBundleURLName</key>
+			<string>io.ona.auth</string>
+			<key>CFBundleURLSchemes</key>
+			<array>
+				<string>ona</string>
+			</array>
+		</dict>
+	</array>
 	<key>UIApplicationSceneManifest</key>
 	<dict>
 		<key>UIApplicationSupportsMultipleScenes</key>

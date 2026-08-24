@@ -76,8 +76,9 @@ class ItinerariesScreen extends ConsumerWidget {
                                 const SizedBox(height: 20),
                                 ElevatedButton.icon(
                                   onPressed: () async {
-                                    final created = await context
-                                        .push<bool>('/itinerary-create');
+                                    final created = await context.push<bool>(
+                                      '/itinerary-create',
+                                    );
                                     if (created == true) {
                                       ref.invalidate(itinerariesProvider);
                                     }
@@ -214,7 +215,9 @@ class _ItineraryCard extends ConsumerWidget {
                     }
                     buffer.writeln('Duration: ${itinerary.durationDays} days');
                     if (itinerary.destinationName != null) {
-                      buffer.writeln('Destination: ${itinerary.destinationName}');
+                      buffer.writeln(
+                        'Destination: ${itinerary.destinationName}',
+                      );
                     }
                     if (itinerary.isAiGenerated) {
                       buffer.writeln('\n✨ Created with AI');

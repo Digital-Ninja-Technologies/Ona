@@ -9,7 +9,11 @@ import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_theme.dart';
 
 const _durations = [1, 3, 5, 7, 10, 14];
-const _budgets = [('budget', 'Budget'), ('moderate', 'Moderate'), ('luxury', 'Luxury')];
+const _budgets = [
+  ('budget', 'Budget'),
+  ('moderate', 'Moderate'),
+  ('luxury', 'Luxury'),
+];
 
 class ItineraryCreateScreen extends ConsumerStatefulWidget {
   const ItineraryCreateScreen({super.key});
@@ -19,8 +23,7 @@ class ItineraryCreateScreen extends ConsumerStatefulWidget {
       _ItineraryCreateScreenState();
 }
 
-class _ItineraryCreateScreenState
-    extends ConsumerState<ItineraryCreateScreen> {
+class _ItineraryCreateScreenState extends ConsumerState<ItineraryCreateScreen> {
   String _mode = 'ai';
 
   // AI mode state
@@ -71,7 +74,20 @@ class _ItineraryCreateScreenState
             days: _selectedDuration,
             budget: _selectedBudget,
           );
-      setState(() => _draft = draft);
+      if (draft.days.isEmpty) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text(
+                "The AI couldn't put together a day-by-day plan for that "
+                'trip. Try a different destination or duration.',
+              ),
+            ),
+          );
+        }
+      } else {
+        setState(() => _draft = draft);
+      }
     } catch (error) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -209,7 +225,9 @@ class _ItineraryCreateScreenState
           runSpacing: 8,
           children: _durations.map((days) {
             return ChoiceChip(
-              label: Text(days == 14 ? '2 Weeks' : '$days Day${days > 1 ? 's' : ''}'),
+              label: Text(
+                days == 14 ? '2 Weeks' : '$days Day${days > 1 ? 's' : ''}',
+              ),
               selected: _selectedDuration == days,
               onSelected: (_) => setState(() => _selectedDuration = days),
             );
@@ -255,9 +273,7 @@ class _ItineraryCreateScreenState
             ),
           ],
           const SizedBox(height: 16),
-          ..._draft!.days.map(
-            (day) => _DayPreview(day: day),
-          ),
+          ..._draft!.days.map((day) => _DayPreview(day: day)),
           const SizedBox(height: 16),
           ElevatedButton(
             onPressed: _saving ? null : _saveAiItinerary,
@@ -298,9 +314,8 @@ class _ItineraryCreateScreenState
         const SizedBox(height: 20),
         for (var i = 0; i < _manualDays.length; i++) _buildDayEditor(i),
         OutlinedButton.icon(
-          onPressed: () => setState(
-            () => _manualDays.add([TextEditingController()]),
-          ),
+          onPressed: () =>
+              setState(() => _manualDays.add([TextEditingController()])),
           icon: const Icon(LucideIcons.plus),
           label: const Text('Add Day'),
         ),
@@ -345,7 +360,12 @@ class _ItineraryCreateScreenState
               if (_manualDays.length > 1)
                 IconButton(
                   icon: const Icon(LucideIcons.x, size: 18),
-                  onPressed: () => setState(() => _manualDays.removeAt(dayIndex)),
+                  onPressed: () => setState(() {
+                    for (final controller in _manualDays[dayIndex]) {
+                      controller.dispose();
+                    }
+                    _manualDays.removeAt(dayIndex);
+                  }),
                 ),
             ],
           ),
@@ -365,7 +385,10 @@ class _ItineraryCreateScreenState
                   if (activities.length > 1)
                     IconButton(
                       icon: const Icon(LucideIcons.x, size: 16),
-                      onPressed: () => setState(() => activities.removeAt(i)),
+                      onPressed: () => setState(() {
+                        activities[i].dispose();
+                        activities.removeAt(i);
+                      }),
                     ),
                 ],
               ),
@@ -411,7 +434,10 @@ class _ModeButton extends StatelessWidget {
         ),
         child: Column(
           children: [
-            Icon(icon, color: selected ? Colors.white : AppColors.textSecondary),
+            Icon(
+              icon,
+              color: selected ? Colors.white : AppColors.textSecondary,
+            ),
             const SizedBox(height: 6),
             Text(
               label,

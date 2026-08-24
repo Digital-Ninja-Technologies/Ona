@@ -90,8 +90,6 @@ final itinerariesRepositoryProvider = Provider<ItinerariesRepository>((ref) {
   return ItinerariesRepository(ref);
 });
 
-final itinerariesProvider = FutureProvider.autoDispose<List<Itinerary>>((
-  ref,
-) {
+final itinerariesProvider = FutureProvider.autoDispose<List<Itinerary>>((ref) {
   return ref.watch(itinerariesRepositoryProvider).fetchItineraries();
 });

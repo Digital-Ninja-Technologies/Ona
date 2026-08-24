@@ -8,9 +8,8 @@ class PublicProfile {
   final String? name;
   final String? profileImage;
 
-  String get displayName => (name != null && name!.trim().isNotEmpty)
-      ? name!
-      : 'Traveler';
+  String get displayName =>
+      (name != null && name!.trim().isNotEmpty) ? name! : 'Traveler';
 
   factory PublicProfile.fromJson(Map<String, dynamic> json) {
     return PublicProfile(

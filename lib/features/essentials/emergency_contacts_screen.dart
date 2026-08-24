@@ -125,8 +125,11 @@ class _EmergencyContactsScreenState extends State<EmergencyContactsScreen> {
 
   Future<void> _call(String number) async {
     final uri = Uri(scheme: 'tel', path: number);
-    if (await canLaunchUrl(uri)) {
-      await launchUrl(uri);
+    final launched = await canLaunchUrl(uri) && await launchUrl(uri);
+    if (!launched && mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Could not open the phone dialer.')),
+      );
     }
   }
 
@@ -161,7 +164,8 @@ class _EmergencyContactsScreenState extends State<EmergencyContactsScreen> {
                       itemBuilder: (context, index) => ListTile(
                         title: Text(countries[index]),
                         selected: countries[index] == _selectedCountry,
-                        onTap: () => Navigator.of(context).pop(countries[index]),
+                        onTap: () =>
+                            Navigator.of(context).pop(countries[index]),
                       ),
                     ),
                   ),
@@ -243,7 +247,10 @@ class _EmergencyCard extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(title, style: AppTheme.poppins(color: AppColors.textSecondary)),
+                Text(
+                  title,
+                  style: AppTheme.poppins(color: AppColors.textSecondary),
+                ),
                 const SizedBox(height: 4),
                 Text(number, style: AppTheme.fredoka(fontSize: 20)),
               ],

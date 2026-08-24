@@ -21,6 +21,8 @@ class AiAssistantScreen extends ConsumerStatefulWidget {
 }
 
 class _AiAssistantScreenState extends ConsumerState<AiAssistantScreen> {
+  static const _maxHistoryMessages = 20;
+
   final _inputController = TextEditingController();
   final _scrollController = ScrollController();
   final List<_Message> _messages = [
@@ -63,14 +65,19 @@ class _AiAssistantScreenState extends ConsumerState<AiAssistantScreen> {
     _scrollToBottom();
 
     try {
+      // Cap the history sent upstream so a long-running chat doesn't grow
+      // the request (and cost) without bound.
+      final history = _messages.length > _maxHistoryMessages
+          ? _messages.sublist(_messages.length - _maxHistoryMessages)
+          : _messages;
       final reply = await ref
           .read(aiAssistantRepositoryProvider)
           .sendMessage(
-            _messages
-                .map((m) => {'role': m.role, 'content': m.content})
-                .toList(),
+            history.map((m) => {'role': m.role, 'content': m.content}).toList(),
           );
-      setState(() => _messages.add(_Message(role: 'assistant', content: reply)));
+      setState(
+        () => _messages.add(_Message(role: 'assistant', content: reply)),
+      );
     } catch (error) {
       setState(
         () => _messages.add(
@@ -95,7 +102,11 @@ class _AiAssistantScreenState extends ConsumerState<AiAssistantScreen> {
         title: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const Icon(LucideIcons.sparkles, color: AppColors.primary, size: 20),
+            const Icon(
+              LucideIcons.sparkles,
+              color: AppColors.primary,
+              size: 20,
+            ),
             const SizedBox(width: 8),
             Text('Ọ̀nà AI', style: AppTheme.fredoka(fontSize: 18)),
           ],
@@ -171,7 +182,9 @@ class _ChatBubble extends StatelessWidget {
         ),
         child: Text(
           message.content,
-          style: AppTheme.poppins(color: isUser ? Colors.white : AppColors.text),
+          style: AppTheme.poppins(
+            color: isUser ? Colors.white : AppColors.text,
+          ),
         ),
       ),
     );

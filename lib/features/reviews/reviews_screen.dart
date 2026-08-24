@@ -64,9 +64,9 @@ class _ReviewsScreenState extends ConsumerState<ReviewsScreen> {
       return;
     }
     if (_commentController.text.trim().isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please write a comment.')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Please write a comment.')));
       return;
     }
 
@@ -128,8 +128,7 @@ class _ReviewsScreenState extends ConsumerState<ReviewsScreen> {
             if (_showForm) _buildForm(),
             Expanded(
               child: reviewsAsync.when(
-                loading: () =>
-                    const Center(child: CircularProgressIndicator()),
+                loading: () => const Center(child: CircularProgressIndicator()),
                 error: (error, _) => Center(
                   child: Text(
                     'Could not load reviews.',

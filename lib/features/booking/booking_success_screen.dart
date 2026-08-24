@@ -35,8 +35,8 @@ class BookingSuccessScreen extends StatelessWidget {
               ),
               const SizedBox(height: 8),
               Text(
-                "We've sent the details to your email. You can cancel free of "
-                'charge up to 24 hours before your experience.',
+                'Your booking is saved to your account. You can cancel free '
+                'of charge up to 24 hours before your experience.',
                 style: AppTheme.poppins(color: AppColors.textSecondary),
                 textAlign: TextAlign.center,
               ),

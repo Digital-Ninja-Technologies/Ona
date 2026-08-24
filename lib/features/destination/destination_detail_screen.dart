@@ -48,10 +48,26 @@ class DestinationDetailScreen extends ConsumerWidget {
                   icon: LucideIcons.heart,
                   isActive: savedAsync.valueOrNull == true,
                   onTap: () async {
-                    await ref
-                        .read(bookingsRepositoryProvider)
-                        .toggleSaved(destinationId);
-                    ref.invalidate(isDestinationSavedProvider(destinationId));
+                    final togglingNotifier = ref.read(
+                      saveTogglingProvider.notifier,
+                    );
+                    if (togglingNotifier.state.contains(destinationId)) return;
+                    togglingNotifier.state = {
+                      ...togglingNotifier.state,
+                      destinationId,
+                    };
+                    try {
+                      await ref
+                          .read(bookingsRepositoryProvider)
+                          .toggleSaved(destinationId);
+                      ref.invalidate(isDestinationSavedProvider(destinationId));
+                    } catch (_) {
+                      // Benign race with another in-flight toggle — the
+                      // refetch above (if it ran) reflects the real state.
+                    } finally {
+                      togglingNotifier.state = {...togglingNotifier.state}
+                        ..remove(destinationId);
+                    }
                   },
                 ),
                 _CircleButton(

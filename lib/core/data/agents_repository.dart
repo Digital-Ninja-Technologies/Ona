@@ -21,9 +21,7 @@ class AgentsRepository {
     if (minRating != null) {
       query = query.gte('rating', minRating);
     }
-    final response = await query
-        .order('rating', ascending: false)
-        .limit(limit);
+    final response = await query.order('rating', ascending: false).limit(limit);
     return (response as List)
         .map((row) => TravelAgent.fromJson(row as Map<String, dynamic>))
         .toList();
@@ -47,9 +45,7 @@ final agentsRepositoryProvider = Provider<AgentsRepository>((ref) {
 final agentSearchQueryProvider = StateProvider<String>((ref) => '');
 final agentMinRatingProvider = StateProvider<double?>((ref) => null);
 
-final agentsListProvider = FutureProvider.autoDispose<List<TravelAgent>>((
-  ref,
-) {
+final agentsListProvider = FutureProvider.autoDispose<List<TravelAgent>>((ref) {
   final search = ref.watch(agentSearchQueryProvider);
   final minRating = ref.watch(agentMinRatingProvider);
   return ref

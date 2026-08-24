@@ -1,4 +1,5 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../features/auth/auth_controller.dart';
 import '../models/chat_message.dart';
@@ -91,12 +92,29 @@ class MessagesRepository {
         .maybeSingle();
     if (existing != null) return existing['id'] as String;
 
-    final created = await client
-        .from('conversations')
-        .insert({'user1_id': me, 'user2_id': otherUserId})
-        .select('id')
-        .single();
-    return created['id'] as String;
+    try {
+      final created = await client
+          .from('conversations')
+          .insert({'user1_id': me, 'user2_id': otherUserId})
+          .select('id')
+          .single();
+      return created['id'] as String;
+    } on PostgrestException catch (e) {
+      // Unique-violation: another request created the same pair between
+      // our check above and this insert. Re-select rather than error.
+      if (e.code == '23505') {
+        final row = await client
+            .from('conversations')
+            .select('id')
+            .or(
+              'and(user1_id.eq.$me,user2_id.eq.$otherUserId),'
+              'and(user1_id.eq.$otherUserId,user2_id.eq.$me)',
+            )
+            .single();
+        return row['id'] as String;
+      }
+      rethrow;
+    }
   }
 
   Future<PublicProfile> fetchOtherUser(String otherUserId) async {
