@@ -4,21 +4,39 @@ Flutter rewrite of the TravelGuide app (now Ona), backed by Supabase. This repla
 previous Expo/React Native + Hono API codebase — see `git log` for the
 original source if you need to reference it.
 
-This covers **Stage 1 + Stage 2** of an incremental migration:
+This covers the full migration, **Stage 1 through Stage 3**:
 
 - **Stage 1**: project foundation — onboarding/auth flow, the six-tab
   navigation shell, and a real Home/Search vertical slice against Supabase.
 - **Stage 2**: the core booking path — destination/experience detail pages,
   booking flow + confirmation, and a wishlist (saved destinations).
+- **Stage 3**: everything else — travel agents, messaging/chat, the
+  community feed, itineraries (manual and AI-generated), an AI travel
+  assistant, reviews (destinations/experiences/agents), a simulated payment
+  step in the booking flow, and offline travel-essentials tools (currency
+  converter, packing checklist, cultural etiquette, safety tips, emergency
+  contacts).
 
-Itinerary creation/AI generation, travel agents, community, messaging, the
-AI assistant, payments, and the remaining utility screens are still
-"Coming soon" placeholders, landing in later stages.
+No screen is a placeholder anymore. Two features call out to external
+services and need extra setup beyond the Supabase schema — see
+[AI features](#4-optional-ai-features-assistant--itinerary-generation) below:
+
+- The **AI assistant** and **AI-generated itineraries** call a Supabase Edge
+  Function that proxies to the Anthropic API. Without a deployed function +
+  `ANTHROPIC_API_KEY` secret, those two entry points show an error instead of
+  a response — everything else in the app works without them.
+- The **booking payment step** is a simulated card form (validates input,
+  "charges" nothing, always succeeds) since no real payment gateway is
+  configured. Swap it for `flutter_stripe` + a real Edge Function if you want
+  actual charges.
 
 ## Prerequisites
 
 - Flutter 3.44+ (`flutter --version`)
 - A Supabase project (free tier is fine)
+- (Optional, for the AI assistant / AI itineraries) An Anthropic API key and
+  the [Supabase CLI](https://supabase.com/docs/guides/cli) to deploy Edge
+  Functions
 
 ## 1. Create the Supabase project
 
@@ -32,9 +50,8 @@ supabase link --project-ref <your-project-ref>
 supabase db push
 ```
 
-Or paste the contents of `supabase/migrations/0001_init.sql` and then
-`supabase/migrations/0002_booking_path.sql` into the SQL editor in the
-Supabase dashboard, in that order:
+Or paste the contents of each file in `supabase/migrations/` into the SQL
+editor in the Supabase dashboard, **in numeric order**:
 
 - `0001_init.sql` creates `profiles`, `destinations`, `experiences`, sets up
   row-level security, wires an `auth.users` insert trigger to auto-create
@@ -44,6 +61,13 @@ Supabase dashboard, in that order:
   `saved_destinations`, with RLS scoping bookings/saves to their owner and a
   trigger that increments `experiences.total_bookings` on each new booking.
   Seeds a couple of attractions per Stage 1 sample destination.
+- `0003_stage3.sql` creates `travel_agents`, `conversations`/`messages`,
+  `community_posts`/`post_likes`/`post_comments`, `itineraries`, and
+  `reviews`; adds a `public_profiles` view (name/avatar only) so posts,
+  comments, conversations, and chat can show a name without exposing full
+  profiles; adds a `payment_status` column to `bookings`; creates a public
+  `uploads` Storage bucket (with RLS) for review/post photos; and seeds a
+  handful of sample travel agents.
 
 In **Authentication → Providers**, email/password sign-up should already be
 enabled by default.
@@ -66,6 +90,34 @@ To avoid retyping these every run, put them in a
 `--dart-define-from-file=env.json` file (gitignored) instead — see
 [the Flutter docs](https://docs.flutter.dev/deployment/flavors).
 
+## 3. Install Flutter dependencies
+
+```bash
+flutter pub get
+```
+
+Stage 3 adds `http` (live currency rates), `share_plus` (sharing
+itineraries), `image_picker` (review/post photos), and `url_launcher`
+(tap-to-call on the emergency contacts screen).
+
+## 4. (Optional) AI features: assistant + itinerary generation
+
+The AI assistant chat and "Generate with AI" itinerary flow call two
+Supabase Edge Functions under `supabase/functions/`, which proxy to the
+Anthropic API using a server-side secret — the app never holds an API key
+itself. To enable them:
+
+```bash
+supabase functions deploy ai-assistant
+supabase functions deploy generate-itinerary
+supabase secrets set ANTHROPIC_API_KEY=sk-ant-...
+```
+
+Both functions default to the `claude-sonnet-5` model; override with
+`supabase secrets set ANTHROPIC_MODEL=...` if you want a different one.
+Without a deployed function + secret, tapping the AI assistant or "Generate
+with AI" shows an error message — every other screen works regardless.
+
 ## Verifying it works
 
 1. `flutter analyze` and `flutter test` should both pass.
@@ -75,13 +127,28 @@ To avoid retyping these every run, put them in a
    reachable.
 3. Tap a destination → detail page renders with attractions; tap the heart
    to save it, then check Profile → Wishlist shows it and removing it there
-   deletes it.
+   deletes it. Tap "Write a Review" to leave a rating/comment (with an
+   optional photo).
 4. From Home, tap an experience → Book Now → pick a date, adjust
-   participants, confirm → lands on a booking confirmation screen.
-5. In the Supabase dashboard, confirm: the new auth user has a matching row
-   in `profiles`; the booking created a row in `bookings` and incremented
-   the linked `experiences.total_bookings`; the saved destination has a row
-   in `saved_destinations`.
+   participants, fill in the (simulated) payment form, confirm → lands on a
+   booking confirmation screen.
+5. Agents tab → search/filter travel agents → open one → "Message Agent"
+   starts a conversation, visible from the Messages tab.
+6. Itineraries tab → create one manually (add days/activities) or with AI
+   (needs the Edge Function from step 4) → saved itinerary appears in the
+   list, can be shared or deleted.
+7. Community tab → filter by post type, create a post (with an optional
+   photo), like/comment on a post.
+8. Tap the sparkle floating button (Home or Community) → chat with the AI
+   assistant (needs the Edge Function from step 4).
+9. Profile → Travel Essentials → currency converter (live rates), packing
+   checklist, cultural etiquette, safety tips, emergency contacts (tap to
+   call).
+10. In the Supabase dashboard, confirm: the new auth user has a matching row
+    in `profiles`; the booking created a row in `bookings` (with
+    `payment_status = 'paid'`) and incremented the linked
+    `experiences.total_bookings`; the saved destination has a row in
+    `saved_destinations`.
 
 ## Project structure
 
@@ -93,22 +160,29 @@ lib/
     models/    Plain Dart data classes
     router/    go_router configuration
     theme/     Colors, text styles
-    widgets/   Shared widgets (destination card, "coming soon" screen)
+    widgets/   Shared widgets (destination card)
   features/
-    auth/          Sign in, sign up, forgot password
+    auth/           Sign in, sign up, forgot password
     onboarding/     Welcome, interests
     home/           Home tab
     search/         Search (reached from Home, not a bottom tab)
     destination/    Destination detail
-    experience/      Experience detail
-    booking/        Booking flow + confirmation
-    wishlist/        Saved destinations
-    agents/         Agents tab (placeholder)
-    itineraries/    Itineraries tab (placeholder)
-    messages/       Messages tab (placeholder)
-    community/      Community tab (placeholder)
-    profile/        Profile tab (real: user info, wishlist link, sign out)
+    experience/     Experience detail
+    booking/        Booking flow (incl. simulated payment) + confirmation
+    wishlist/       Saved destinations
+    agents/         Travel agents list + detail (Agents tab)
+    itineraries/    Itineraries list, create (manual/AI), detail (tab)
+    messages/       Conversations list + chat (Messages tab)
+    community/      Post feed, create post, comments (Community tab)
+    reviews/        Shared reviews screen (destinations/experiences/agents)
+    ai_assistant/   AI travel assistant chat screen
+    essentials/     Currency converter, packing checklist, etiquette,
+                    safety tips, emergency contacts
+    profile/        Profile tab (user info, wishlist/itineraries/essentials
+                    links, sign out)
     shell/          Bottom-tab shell
 supabase/
   migrations/    SQL schema + seed data (apply in numeric order)
+  functions/     Edge Functions (ai-assistant, generate-itinerary) — proxy
+                 to Anthropic using a server-side secret
 ```

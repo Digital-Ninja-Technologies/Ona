@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 import '../../core/data/destinations_repository.dart';
+import '../../core/data/reviews_repository.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_theme.dart';
 
@@ -130,6 +131,17 @@ class ExperienceDetailScreen extends ConsumerWidget {
                         style: AppTheme.poppins(color: AppColors.textSecondary),
                       ),
                     ],
+                    const SizedBox(height: 20),
+                    OutlinedButton(
+                      onPressed: () => context.push(
+                        '/reviews',
+                        extra: {
+                          'target': ReviewTarget.experience(experienceId),
+                          'title': experience.title,
+                        },
+                      ),
+                      child: const Text('Reviews'),
+                    ),
                     const SizedBox(height: 100),
                   ],
                 ),

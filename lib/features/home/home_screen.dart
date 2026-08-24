@@ -17,6 +17,11 @@ class HomeScreen extends ConsumerWidget {
     final experiences = ref.watch(popularExperiencesProvider);
 
     return Scaffold(
+      floatingActionButton: FloatingActionButton(
+        heroTag: 'home-ai-assistant',
+        onPressed: () => context.push('/ai-assistant'),
+        child: const Icon(LucideIcons.sparkles),
+      ),
       body: SafeArea(
         child: RefreshIndicator(
           onRefresh: () async {
