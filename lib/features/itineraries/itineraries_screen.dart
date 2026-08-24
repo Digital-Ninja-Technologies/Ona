@@ -219,7 +219,12 @@ class _ItineraryCard extends ConsumerWidget {
                     if (itinerary.isAiGenerated) {
                       buffer.writeln('\n✨ Created with AI');
                     }
-                    Share.share(buffer.toString(), subject: itinerary.title);
+                    SharePlus.instance.share(
+                      ShareParams(
+                        text: buffer.toString(),
+                        subject: itinerary.title,
+                      ),
+                    );
                   },
                 ),
                 IconButton(

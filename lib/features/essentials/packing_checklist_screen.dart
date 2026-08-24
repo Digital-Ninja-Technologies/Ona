@@ -185,6 +185,7 @@ class _ChecklistRow extends StatelessWidget {
                 label,
                 style: AppTheme.poppins(
                   color: checked ? AppColors.textSecondary : AppColors.text,
+                ).copyWith(
                   decoration: checked ? TextDecoration.lineThrough : null,
                 ),
               ),

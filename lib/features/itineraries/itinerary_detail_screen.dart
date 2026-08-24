@@ -41,7 +41,9 @@ class ItineraryDetailScreen extends ConsumerWidget {
                   if (itinerary.description != null) {
                     buffer.writeln(itinerary.description);
                   }
-                  Share.share(buffer.toString(), subject: itinerary.title);
+                  SharePlus.instance.share(
+                    ShareParams(text: buffer.toString(), subject: itinerary.title),
+                  );
                 },
               );
             },
