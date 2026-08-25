@@ -6,6 +6,11 @@
 //   supabase functions deploy ai-assistant
 //   supabase secrets set ANTHROPIC_API_KEY=sk-ant-...
 //
+// The web_search server tool is enabled so Ona can pull current info (prices,
+// hours, events, conditions) from the live web instead of only its training
+// data. Each search is billed at $10/1,000 searches plus standard token
+// costs for the results — max_uses caps that per turn.
+//
 // Request body:  { "messages": [{ "role": "user" | "assistant", "content": string }] }
 // Response body: { "reply": string }
 
@@ -15,8 +20,53 @@ const ANTHROPIC_MODEL = Deno.env.get("ANTHROPIC_MODEL") ?? "claude-sonnet-5";
 const SYSTEM_PROMPT =
   "You are the Ona travel assistant. Help travelers discover destinations, " +
   "plan itineraries, find restaurants and activities, and answer practical " +
-  "travel questions (visas, packing, safety, budgeting). Keep replies " +
-  "warm, concise, and focused on travel.";
+  "travel questions (visas, packing, safety, budgeting). You have live web " +
+  "search — use it for anything time-sensitive (current prices, opening " +
+  "hours, weather, events, news) rather than relying on memory. Keep " +
+  "replies warm, concise, and focused on travel.";
+
+interface AnthropicCitation {
+  type: string;
+  url?: string;
+  title?: string;
+  cited_text?: string;
+}
+
+interface AnthropicContentBlock {
+  type: string;
+  text?: string;
+  citations?: AnthropicCitation[];
+}
+
+/**
+ * Anthropic responses that use the web_search tool interleave text blocks
+ * with server_tool_use / web_search_tool_result blocks, so the final answer
+ * usually isn't content[0] — it's the last text block. Concatenate every
+ * text block in order, and collect any cited sources so we can surface them.
+ */
+function extractReply(content: AnthropicContentBlock[]): string {
+  const textParts: string[] = [];
+  const sources = new Map<string, string>(); // url -> title
+
+  for (const block of content) {
+    if (block.type !== "text" || !block.text) continue;
+    textParts.push(block.text);
+    for (const citation of block.citations ?? []) {
+      if (citation.url && !sources.has(citation.url)) {
+        sources.set(citation.url, citation.title ?? citation.url);
+      }
+    }
+  }
+
+  let reply = textParts.join("").trim();
+  if (sources.size > 0) {
+    const list = [...sources.entries()]
+      .map(([url, title]) => `- ${title}: ${url}`)
+      .join("\n");
+    reply += `\n\nSources:\n${list}`;
+  }
+  return reply;
+}
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -64,6 +114,9 @@ Deno.serve(async (req: Request) => {
           role: message.role === "assistant" ? "assistant" : "user",
           content: message.content,
         })),
+        tools: [
+          { type: "web_search_20260318", name: "web_search", max_uses: 5 },
+        ],
       }),
     });
 
@@ -73,7 +126,7 @@ Deno.serve(async (req: Request) => {
     }
 
     const data = await response.json();
-    const reply = data.content?.[0]?.text ?? "";
+    const reply = extractReply(data.content ?? []);
 
     return jsonResponse({ reply });
   } catch (error) {
