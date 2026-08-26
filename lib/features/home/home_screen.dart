@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -6,6 +8,8 @@ import 'package:lucide_icons_flutter/lucide_icons.dart';
 import '../../core/data/ai_assistant_repository.dart';
 import '../../core/data/destinations_repository.dart';
 import '../../core/data/location_repository.dart';
+import '../../core/data/nearby_destinations_cache.dart';
+import '../../core/models/place_suggestion.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/widgets/destination_card.dart';
@@ -27,20 +31,82 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   String? _customLocation;
   bool _resolvingLocation = false;
 
+  // "Popular Destinations" driven by the device's actual geolocation only
+  // (never by a manual Local Experiences search — see _useMyLocation vs
+  // _searchCustomLocation). Cached to local storage; refetched only when
+  // the resolved location differs from what's cached.
+  List<PlaceSuggestion>? _nearbyDestinations;
+  bool _loadingNearbyDestinations = false;
+  String? _nearbyDestinationsError;
+  String? _geoLocation;
+
   @override
   void initState() {
     super.initState();
+    // Show cached nearby destinations instantly (no network) while a fresh
+    // geolocation resolves in the background.
+    _loadCachedNearbyDestinations();
     // Best-effort: try the device's location once on load so "Local
-    // Experiences" can default to somewhere near the user. Silent on
-    // failure (permission not yet granted, services off, etc.) — the user
-    // still has the "Near me" chip to retry deliberately, with feedback.
-    WidgetsBinding.instance.addPostFrameCallback((_) => _useMyLocation(silent: true));
+    // Experiences" and "Popular Destinations" can default to somewhere near
+    // the user. Silent on failure (permission not yet granted, services
+    // off, etc.) — the user still has the "Near me" chip to retry
+    // deliberately, with feedback.
+    WidgetsBinding.instance.addPostFrameCallback(
+      (_) => _useMyLocation(silent: true),
+    );
   }
 
   @override
   void dispose() {
     _locationController.dispose();
     super.dispose();
+  }
+
+  Future<void> _loadCachedNearbyDestinations() async {
+    final cached = await ref
+        .read(nearbyDestinationsCacheProvider)
+        .readDestinations();
+    if (mounted && cached != null && cached.isNotEmpty) {
+      setState(() => _nearbyDestinations = cached);
+    }
+  }
+
+  /// Refreshes "Popular Destinations" for [location] only if it differs
+  /// from what's cached — otherwise reuses the cached list without another
+  /// AI call, satisfying "refresh on every new location" (and only then).
+  Future<void> _loadNearbyDestinations(String location) async {
+    final cache = ref.read(nearbyDestinationsCacheProvider);
+    final cachedLocation = await cache.readLocation();
+    if (cachedLocation == location) {
+      final cached = await cache.readDestinations();
+      if (cached != null && cached.isNotEmpty) {
+        if (mounted) {
+          setState(() {
+            _nearbyDestinations = cached;
+            _nearbyDestinationsError = null;
+          });
+        }
+        return;
+      }
+    }
+
+    if (mounted) {
+      setState(() {
+        _loadingNearbyDestinations = true;
+        _nearbyDestinationsError = null;
+      });
+    }
+    try {
+      final fresh = await ref
+          .read(aiAssistantRepositoryProvider)
+          .fetchNearbyDestinations(location);
+      await cache.save(location, fresh);
+      if (mounted) setState(() => _nearbyDestinations = fresh);
+    } catch (error) {
+      if (mounted) setState(() => _nearbyDestinationsError = error.toString());
+    } finally {
+      if (mounted) setState(() => _loadingNearbyDestinations = false);
+    }
   }
 
   Future<void> _useMyLocation({bool silent = false}) async {
@@ -54,12 +120,16 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       ref.read(selectedExperienceDestinationProvider.notifier).state = null;
       setState(() {
         _customLocation = name;
+        _geoLocation = name;
         _locationController.text = name;
       });
+      unawaited(_loadNearbyDestinations(name));
     } catch (error) {
       if (!mounted || silent) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(error.toString().replaceFirst('Exception: ', ''))),
+        SnackBar(
+          content: Text(error.toString().replaceFirst('Exception: ', '')),
+        ),
       );
     } finally {
       if (mounted) setState(() => _resolvingLocation = false);
@@ -89,6 +159,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       selectedExperienceDestinationProvider,
     );
     final customLocation = _customLocation;
+    final nearbyDestinations = _nearbyDestinations;
 
     return Scaffold(
       floatingActionButton: FloatingActionButton(
@@ -104,6 +175,10 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
             final location = customLocation;
             if (location != null) {
               ref.invalidate(placesForLocationProvider(location));
+            }
+            final geoLocation = _geoLocation;
+            if (geoLocation != null) {
+              await _loadNearbyDestinations(geoLocation);
             }
           },
           child: ListView(
@@ -145,40 +220,145 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                 ),
               ),
               const SizedBox(height: 24),
-              Text(
-                'Popular Destinations',
-                style: AppTheme.fredoka(fontSize: 18),
+              Row(
+                children: [
+                  Text(
+                    _geoLocation == null
+                        ? 'Popular Destinations'
+                        : 'Popular Near $_geoLocation',
+                    style: AppTheme.fredoka(fontSize: 18),
+                  ),
+                  const Spacer(),
+                  if (_loadingNearbyDestinations)
+                    const SizedBox(
+                      width: 14,
+                      height: 14,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
+                  else
+                    GestureDetector(
+                      onTap: _resolvingLocation ? null : _useMyLocation,
+                      child: Icon(
+                        LucideIcons.locateFixed,
+                        size: 18,
+                        color: _resolvingLocation
+                            ? AppColors.textSecondary.withValues(alpha: 0.4)
+                            : AppColors.textSecondary,
+                      ),
+                    ),
+                ],
               ),
               const SizedBox(height: 12),
               SizedBox(
-                height: 230,
-                child: destinations.when(
-                  data: (items) => items.isEmpty
-                      ? Center(
-                          child: Text(
-                            'No destinations yet',
-                            style: AppTheme.poppins(
-                              color: AppColors.textSecondary,
-                            ),
-                          ),
-                        )
-                      : ListView.separated(
-                          scrollDirection: Axis.horizontal,
-                          itemCount: items.length,
-                          separatorBuilder: (_, _) => const SizedBox(width: 12),
-                          itemBuilder: (context, index) => DestinationCard(
-                            destination: items[index],
-                            onTap: () =>
-                                context.push('/destination/${items[index].id}'),
-                          ),
-                        ),
-                  loading: () =>
-                      const Center(child: CircularProgressIndicator()),
-                  error: (error, _) => ErrorView(
-                    message: 'Could not load destinations',
-                    onRetry: () => ref.invalidate(popularDestinationsProvider),
-                  ),
-                ),
+                height: nearbyDestinations != null ? 130 : 230,
+                child: nearbyDestinations != null
+                    ? (nearbyDestinations.isEmpty
+                          ? Center(
+                              child: Text(
+                                'No nearby destinations found',
+                                style: AppTheme.poppins(
+                                  color: AppColors.textSecondary,
+                                ),
+                              ),
+                            )
+                          : ListView.separated(
+                              scrollDirection: Axis.horizontal,
+                              itemCount: nearbyDestinations.length,
+                              separatorBuilder: (_, _) =>
+                                  const SizedBox(width: 12),
+                              itemBuilder: (context, index) {
+                                final place = nearbyDestinations[index];
+                                return GestureDetector(
+                                  onTap: () {
+                                    ref
+                                            .read(
+                                              selectedExperienceDestinationProvider
+                                                  .notifier,
+                                            )
+                                            .state =
+                                        null;
+                                    setState(() => _customLocation = place.name);
+                                  },
+                                  child: Container(
+                                    width: 200,
+                                    padding: const EdgeInsets.all(16),
+                                    decoration: BoxDecoration(
+                                      color: AppColors.surface,
+                                      borderRadius: BorderRadius.circular(14),
+                                    ),
+                                    child: Column(
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
+                                      children: [
+                                        Text(
+                                          place.name,
+                                          style: AppTheme.fredoka(
+                                            fontSize: 15,
+                                          ),
+                                          maxLines: 1,
+                                          overflow: TextOverflow.ellipsis,
+                                        ),
+                                        const SizedBox(height: 4),
+                                        Expanded(
+                                          child: Text(
+                                            place.description,
+                                            style: AppTheme.poppins(
+                                              fontSize: 12,
+                                              color: AppColors.textSecondary,
+                                            ),
+                                            maxLines: 4,
+                                            overflow: TextOverflow.ellipsis,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                );
+                              },
+                            ))
+                    : (_nearbyDestinationsError != null
+                          ? ErrorView(
+                              message: 'Could not load nearby destinations',
+                              onRetry: () {
+                                final geoLocation = _geoLocation;
+                                if (geoLocation != null) {
+                                  _loadNearbyDestinations(geoLocation);
+                                }
+                              },
+                            )
+                          : destinations.when(
+                              data: (items) => items.isEmpty
+                                  ? Center(
+                                      child: Text(
+                                        'No destinations yet',
+                                        style: AppTheme.poppins(
+                                          color: AppColors.textSecondary,
+                                        ),
+                                      ),
+                                    )
+                                  : ListView.separated(
+                                      scrollDirection: Axis.horizontal,
+                                      itemCount: items.length,
+                                      separatorBuilder: (_, _) =>
+                                          const SizedBox(width: 12),
+                                      itemBuilder: (context, index) =>
+                                          DestinationCard(
+                                            destination: items[index],
+                                            onTap: () => context.push(
+                                              '/destination/${items[index].id}',
+                                            ),
+                                          ),
+                                    ),
+                              loading: () => const Center(
+                                child: CircularProgressIndicator(),
+                              ),
+                              error: (error, _) => ErrorView(
+                                message: 'Could not load destinations',
+                                onRetry: () => ref.invalidate(
+                                  popularDestinationsProvider,
+                                ),
+                              ),
+                            )),
               ),
               const SizedBox(height: 24),
               Text(
@@ -196,44 +376,16 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                           height: 36,
                           child: ListView.separated(
                             scrollDirection: Axis.horizontal,
-                            itemCount: items.length + 2,
+                            itemCount: items.length + 1,
                             separatorBuilder: (_, _) =>
                                 const SizedBox(width: 8),
                             itemBuilder: (context, index) {
-                              if (index == 1) {
-                                return ChoiceChip(
-                                  avatar: _resolvingLocation
-                                      ? const SizedBox(
-                                          width: 14,
-                                          height: 14,
-                                          child: CircularProgressIndicator(
-                                            strokeWidth: 2,
-                                          ),
-                                        )
-                                      : const Icon(
-                                          LucideIcons.locateFixed,
-                                          size: 16,
-                                        ),
-                                  label: const Text('Near me'),
-                                  selected: false,
-                                  onSelected: (_) => _useMyLocation(),
-                                  labelStyle: AppTheme.poppins(fontSize: 13),
-                                  backgroundColor: AppColors.surface,
-                                  side: BorderSide.none,
-                                  padding: const EdgeInsets.symmetric(
-                                    horizontal: 4,
-                                  ),
-                                );
-                              }
-                              final destinationIndex = index > 1
-                                  ? index - 2
-                                  : -1;
                               final id = index == 0
                                   ? null
-                                  : items[destinationIndex].id;
+                                  : items[index - 1].id;
                               final label = index == 0
                                   ? 'All'
-                                  : items[destinationIndex].name;
+                                  : items[index - 1].name;
                               final selected = selectedDestinationId == id;
                               return ChoiceChip(
                                 label: Text(label),

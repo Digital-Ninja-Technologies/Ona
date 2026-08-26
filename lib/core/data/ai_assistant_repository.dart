@@ -55,17 +55,29 @@ class AiAssistantRepository {
 
   /// Fetches AI-generated place suggestions for a [location] the user typed
   /// manually — used when the app has no database destination matching it.
+  /// These are attractions *within* the location (museums, landmarks, etc).
+  Future<List<PlaceSuggestion>> fetchPlaces(String location) {
+    return _fetchStructuredPlaces('List nice places to visit in $location.');
+  }
+
+  /// Fetches AI-generated nearby *destinations* worth traveling to from
+  /// [location] — other cities/regions within reach, not attractions inside
+  /// [location] itself (contrast with [fetchPlaces]). Used to populate
+  /// "Popular Destinations" from the user's geolocation.
+  Future<List<PlaceSuggestion>> fetchNearbyDestinations(String location) {
+    return _fetchStructuredPlaces(
+      'List popular travel destinations worth visiting near $location.',
+    );
+  }
+
   /// Calls `ai-assistant` with `structuredPlaces: true`, which returns
-  /// `reply` as a JSON array instead of chat prose. Throws if the function
-  /// errors or the reply isn't valid, parseable JSON.
-  Future<List<PlaceSuggestion>> fetchPlaces(String location) async {
+  /// `reply` as a JSON array instead of chat prose, for [message]. Throws if
+  /// the function errors or the reply isn't valid, parseable JSON.
+  Future<List<PlaceSuggestion>> _fetchStructuredPlaces(String message) async {
     final client = _ref.read(supabaseProvider);
     final response = await client.functions.invoke(
       'ai-assistant',
-      body: {
-        'message': 'List nice places to visit in $location.',
-        'structuredPlaces': true,
-      },
+      body: {'message': message, 'structuredPlaces': true},
     );
     final data = response.data;
     if (data is Map && data['error'] != null) {
