@@ -151,6 +151,9 @@ Deno.serve(async (req: Request) => {
           model: GEMINI_MODEL,
           system_instruction: buildSystemInstruction(searchResults),
           input: message,
+          // A lightweight chat assistant doesn't need deep reasoning — keep
+          // thinking cheap so free-tier quota goes toward actual replies.
+          generation_config: { thinking_level: "low" },
           ...(previousInteractionId
             ? { previous_interaction_id: previousInteractionId }
             : {}),
@@ -164,7 +167,19 @@ Deno.serve(async (req: Request) => {
     }
 
     const data = await response.json();
-    let reply = String(data.output_text ?? "").trim();
+    // The raw REST response has no top-level "output_text" — that's only a
+    // convenience property in Google's SDK wrappers. The real text lives in
+    // steps[].content[].text on "model_output" steps.
+    const steps = Array.isArray(data.steps) ? data.steps : [];
+    let reply = steps
+      .filter((step: { type: string }) => step.type === "model_output")
+      .flatMap((step: { content?: { type: string; text?: string }[] }) =>
+        step.content ?? []
+      )
+      .filter((block: { type: string }) => block.type === "text")
+      .map((block: { text?: string }) => block.text ?? "")
+      .join("")
+      .trim();
 
     if (searchResults.length > 0) {
       const sources = searchResults
