@@ -5,6 +5,7 @@ import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 import '../../core/data/ai_assistant_repository.dart';
 import '../../core/data/destinations_repository.dart';
+import '../../core/data/location_repository.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/widgets/destination_card.dart';
@@ -20,15 +21,49 @@ class HomeScreen extends ConsumerStatefulWidget {
 class _HomeScreenState extends ConsumerState<HomeScreen> {
   final _locationController = TextEditingController();
 
-  // Non-null once the user submits a manually-typed location — switches
-  // "Local Experiences" from the database list to AI-generated suggestions
-  // for that location instead.
+  // Non-null once the user submits a manually-typed (or geolocated) place —
+  // switches "Local Experiences" from the database list to AI-generated
+  // suggestions for that location instead.
   String? _customLocation;
+  bool _resolvingLocation = false;
+
+  @override
+  void initState() {
+    super.initState();
+    // Best-effort: try the device's location once on load so "Local
+    // Experiences" can default to somewhere near the user. Silent on
+    // failure (permission not yet granted, services off, etc.) — the user
+    // still has the "Near me" chip to retry deliberately, with feedback.
+    WidgetsBinding.instance.addPostFrameCallback((_) => _useMyLocation(silent: true));
+  }
 
   @override
   void dispose() {
     _locationController.dispose();
     super.dispose();
+  }
+
+  Future<void> _useMyLocation({bool silent = false}) async {
+    if (_resolvingLocation) return;
+    setState(() => _resolvingLocation = true);
+    try {
+      final name = await ref
+          .read(locationRepositoryProvider)
+          .fetchCurrentLocationName();
+      if (!mounted) return;
+      ref.read(selectedExperienceDestinationProvider.notifier).state = null;
+      setState(() {
+        _customLocation = name;
+        _locationController.text = name;
+      });
+    } catch (error) {
+      if (!mounted || silent) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(error.toString().replaceFirst('Exception: ', ''))),
+      );
+    } finally {
+      if (mounted) setState(() => _resolvingLocation = false);
+    }
   }
 
   void _searchCustomLocation() {
@@ -161,16 +196,44 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                           height: 36,
                           child: ListView.separated(
                             scrollDirection: Axis.horizontal,
-                            itemCount: items.length + 1,
+                            itemCount: items.length + 2,
                             separatorBuilder: (_, _) =>
                                 const SizedBox(width: 8),
                             itemBuilder: (context, index) {
+                              if (index == 1) {
+                                return ChoiceChip(
+                                  avatar: _resolvingLocation
+                                      ? const SizedBox(
+                                          width: 14,
+                                          height: 14,
+                                          child: CircularProgressIndicator(
+                                            strokeWidth: 2,
+                                          ),
+                                        )
+                                      : const Icon(
+                                          LucideIcons.locateFixed,
+                                          size: 16,
+                                        ),
+                                  label: const Text('Near me'),
+                                  selected: false,
+                                  onSelected: (_) => _useMyLocation(),
+                                  labelStyle: AppTheme.poppins(fontSize: 13),
+                                  backgroundColor: AppColors.surface,
+                                  side: BorderSide.none,
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 4,
+                                  ),
+                                );
+                              }
+                              final destinationIndex = index > 1
+                                  ? index - 2
+                                  : -1;
                               final id = index == 0
                                   ? null
-                                  : items[index - 1].id;
+                                  : items[destinationIndex].id;
                               final label = index == 0
                                   ? 'All'
-                                  : items[index - 1].name;
+                                  : items[destinationIndex].name;
                               final selected = selectedDestinationId == id;
                               return ChoiceChip(
                                 label: Text(label),
