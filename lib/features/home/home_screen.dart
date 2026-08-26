@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -250,7 +251,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
               ),
               const SizedBox(height: 12),
               SizedBox(
-                height: nearbyDestinations != null ? 130 : 230,
+                height: nearbyDestinations != null ? 225 : 230,
                 child: nearbyDestinations != null
                     ? (nearbyDestinations.isEmpty
                           ? Center(
@@ -268,7 +269,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                                   const SizedBox(width: 12),
                               itemBuilder: (context, index) {
                                 final place = nearbyDestinations[index];
-                                return GestureDetector(
+                                return _PlaceCard(
+                                  place: place,
                                   onTap: () {
                                     ref
                                             .read(
@@ -279,40 +281,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                                         null;
                                     setState(() => _customLocation = place.name);
                                   },
-                                  child: Container(
-                                    width: 200,
-                                    padding: const EdgeInsets.all(16),
-                                    decoration: BoxDecoration(
-                                      color: AppColors.surface,
-                                      borderRadius: BorderRadius.circular(14),
-                                    ),
-                                    child: Column(
-                                      crossAxisAlignment:
-                                          CrossAxisAlignment.start,
-                                      children: [
-                                        Text(
-                                          place.name,
-                                          style: AppTheme.fredoka(
-                                            fontSize: 15,
-                                          ),
-                                          maxLines: 1,
-                                          overflow: TextOverflow.ellipsis,
-                                        ),
-                                        const SizedBox(height: 4),
-                                        Expanded(
-                                          child: Text(
-                                            place.description,
-                                            style: AppTheme.poppins(
-                                              fontSize: 12,
-                                              color: AppColors.textSecondary,
-                                            ),
-                                            maxLines: 4,
-                                            overflow: TextOverflow.ellipsis,
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                  ),
                                 );
                               },
                             ))
@@ -537,35 +505,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                                       padding: const EdgeInsets.only(
                                         bottom: 12,
                                       ),
-                                      child: Container(
-                                        padding: const EdgeInsets.all(16),
-                                        decoration: BoxDecoration(
-                                          color: AppColors.surface,
-                                          borderRadius: BorderRadius.circular(
-                                            14,
-                                          ),
-                                        ),
-                                        child: Column(
-                                          crossAxisAlignment:
-                                              CrossAxisAlignment.start,
-                                          children: [
-                                            Text(
-                                              place.name,
-                                              style: AppTheme.fredoka(
-                                                fontSize: 15,
-                                              ),
-                                            ),
-                                            const SizedBox(height: 4),
-                                            Text(
-                                              place.description,
-                                              style: AppTheme.poppins(
-                                                color:
-                                                    AppColors.textSecondary,
-                                              ),
-                                            ),
-                                          ],
-                                        ),
-                                      ),
+                                      child: _PlaceListTile(place: place),
                                     ),
                                   )
                                   .toList(),
@@ -586,6 +526,131 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
             ],
           ),
         ),
+      ),
+    );
+  }
+}
+
+/// A "Popular Near Me" card — Brave-sourced photo on top, name + a
+/// two-line description below. Sibling in spirit to [DestinationCard], but
+/// for an AI-generated [PlaceSuggestion] rather than a database row.
+class _PlaceCard extends StatelessWidget {
+  const _PlaceCard({required this.place, required this.onTap});
+
+  final PlaceSuggestion place;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        width: 200,
+        clipBehavior: Clip.antiAlias,
+        decoration: BoxDecoration(
+          color: AppColors.surface,
+          borderRadius: BorderRadius.circular(14),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            AspectRatio(
+              aspectRatio: 4 / 3,
+              child: place.imageUrl != null
+                  ? CachedNetworkImage(
+                      imageUrl: place.imageUrl!,
+                      fit: BoxFit.cover,
+                      placeholder: (context, url) =>
+                          Container(color: AppColors.border),
+                      errorWidget: (context, url, error) =>
+                          Container(color: AppColors.border),
+                    )
+                  : Container(color: AppColors.border),
+            ),
+            Padding(
+              padding: const EdgeInsets.all(10),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    place.name,
+                    style: AppTheme.fredoka(fontSize: 14),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    place.description,
+                    style: AppTheme.poppins(
+                      fontSize: 11,
+                      color: AppColors.textSecondary,
+                    ),
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// A "Places to Visit" row — thumbnail + name/description, matching the
+/// destination detail screen's attraction-card visual pattern.
+class _PlaceListTile extends StatelessWidget {
+  const _PlaceListTile({required this.place});
+
+  final PlaceSuggestion place;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: AppColors.surface,
+        borderRadius: BorderRadius.circular(14),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          ClipRRect(
+            borderRadius: BorderRadius.circular(10),
+            child: SizedBox(
+              width: 72,
+              height: 72,
+              child: place.imageUrl != null
+                  ? CachedNetworkImage(
+                      imageUrl: place.imageUrl!,
+                      fit: BoxFit.cover,
+                      placeholder: (context, url) =>
+                          Container(color: AppColors.border),
+                      errorWidget: (context, url, error) =>
+                          Container(color: AppColors.border),
+                    )
+                  : Container(color: AppColors.border),
+            ),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(place.name, style: AppTheme.fredoka(fontSize: 15)),
+                const SizedBox(height: 4),
+                Text(
+                  place.description,
+                  style: AppTheme.poppins(
+                    fontSize: 13,
+                    color: AppColors.textSecondary,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
       ),
     );
   }

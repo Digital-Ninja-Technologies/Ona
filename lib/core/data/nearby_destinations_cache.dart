@@ -43,7 +43,13 @@ class NearbyDestinationsCache {
       _destinationsKey,
       jsonEncode(
         destinations
-            .map((p) => {'name': p.name, 'description': p.description})
+            .map(
+              (p) => {
+                'name': p.name,
+                'description': p.description,
+                'imageUrl': p.imageUrl,
+              },
+            )
             .toList(),
       ),
     );
