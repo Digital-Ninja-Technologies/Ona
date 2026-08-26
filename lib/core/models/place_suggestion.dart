@@ -6,6 +6,8 @@ class PlaceSuggestion {
     required this.description,
     this.imageUrl,
     this.address,
+    this.phone,
+    this.website,
   });
 
   final String name;
@@ -21,12 +23,22 @@ class PlaceSuggestion {
   /// existed, or if the model didn't provide one.
   final String? address;
 
+  /// Best-guess contact phone number for this place, as suggested by the
+  /// LLM. Null for older cached entries, or if none is known.
+  final String? phone;
+
+  /// Best-guess official website for this place, as suggested by the LLM.
+  /// Null for older cached entries, or if none is known.
+  final String? website;
+
   factory PlaceSuggestion.fromJson(Map<String, dynamic> json) {
     return PlaceSuggestion(
       name: json['name'] as String? ?? '',
       description: json['description'] as String? ?? '',
       imageUrl: json['imageUrl'] as String?,
       address: json['address'] as String?,
+      phone: json['phone'] as String?,
+      website: json['website'] as String?,
     );
   }
 }

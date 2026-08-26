@@ -15,6 +15,7 @@ import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/widgets/destination_card.dart';
 import '../../core/widgets/error_view.dart';
+import '../../core/widgets/image_loading_placeholder.dart';
 
 class HomeScreen extends ConsumerStatefulWidget {
   const HomeScreen({super.key});
@@ -223,13 +224,17 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
               const SizedBox(height: 24),
               Row(
                 children: [
-                  Text(
-                    _geoLocation == null
-                        ? 'Popular Destinations'
-                        : 'Popular Near $_geoLocation',
-                    style: AppTheme.fredoka(fontSize: 18),
+                  Expanded(
+                    child: Text(
+                      _geoLocation == null
+                          ? 'Popular Destinations'
+                          : 'Popular Near $_geoLocation',
+                      style: AppTheme.fredoka(fontSize: 18),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
                   ),
-                  const Spacer(),
+                  const SizedBox(width: 8),
                   if (_loadingNearbyDestinations)
                     const SizedBox(
                       width: 14,
@@ -316,9 +321,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                               ),
                               error: (error, _) => ErrorView(
                                 message: 'Could not load destinations',
-                                onRetry: () => ref.invalidate(
-                                  popularDestinationsProvider,
-                                ),
+                                onRetry: () =>
+                                    ref.invalidate(popularDestinationsProvider),
                               ),
                             )),
               ),
@@ -352,12 +356,14 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                               return ChoiceChip(
                                 label: Text(label),
                                 selected: selected,
-                                onSelected: (_) => ref
-                                    .read(
-                                      selectedExperienceDestinationProvider
-                                          .notifier,
-                                    )
-                                    .state = id,
+                                onSelected: (_) =>
+                                    ref
+                                            .read(
+                                              selectedExperienceDestinationProvider
+                                                  .notifier,
+                                            )
+                                            .state =
+                                        id,
                                 labelStyle: AppTheme.poppins(
                                   fontSize: 13,
                                   color: selected
@@ -435,9 +441,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                                       padding: const EdgeInsets.all(16),
                                       decoration: BoxDecoration(
                                         color: AppColors.surface,
-                                        borderRadius: BorderRadius.circular(
-                                          14,
-                                        ),
+                                        borderRadius: BorderRadius.circular(14),
                                       ),
                                       child: Row(
                                         children: [
@@ -457,8 +461,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                                                   '\$${experience.price.toStringAsFixed(0)}',
                                                   style: AppTheme.poppins(
                                                     color: AppColors.primary,
-                                                    fontWeight:
-                                                        FontWeight.w600,
+                                                    fontWeight: FontWeight.w600,
                                                   ),
                                                 ),
                                               ],
@@ -561,7 +564,9 @@ class _PlaceCard extends StatelessWidget {
                       imageUrl: place.imageUrl!,
                       fit: BoxFit.cover,
                       placeholder: (context, url) =>
-                          Container(color: AppColors.border),
+                          const ImageLoadingPlaceholder(
+                            background: AppColors.border,
+                          ),
                       errorWidget: (context, url, error) =>
                           Container(color: AppColors.border),
                     )
@@ -630,7 +635,9 @@ class _PlaceListTile extends StatelessWidget {
                         imageUrl: place.imageUrl!,
                         fit: BoxFit.cover,
                         placeholder: (context, url) =>
-                            Container(color: AppColors.border),
+                            const ImageLoadingPlaceholder(
+                              background: AppColors.border,
+                            ),
                         errorWidget: (context, url, error) =>
                             Container(color: AppColors.border),
                       )

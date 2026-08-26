@@ -7,6 +7,7 @@ import 'package:url_launcher/url_launcher.dart';
 import '../../core/models/place_suggestion.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_theme.dart';
+import '../../core/widgets/image_loading_placeholder.dart';
 
 /// Full-detail view for an AI-suggested [PlaceSuggestion] — shown when the
 /// user taps a place card/tile on the home screen. Unlike
@@ -22,12 +23,37 @@ class PlaceDetailScreen extends StatelessWidget {
     final query = Uri.encodeComponent(
       place.address != null ? '${place.name}, ${place.address}' : place.name,
     );
-    final uri = Uri.parse('https://www.google.com/maps/search/?api=1&query=$query');
+    final uri = Uri.parse(
+      'https://www.google.com/maps/search/?api=1&query=$query',
+    );
+    await _launch(context, uri, 'Could not open the maps app.');
+  }
+
+  Future<void> _call(BuildContext context) async {
+    final uri = Uri(scheme: 'tel', path: place.phone);
+    await _launch(context, uri, 'Could not open the phone dialer.');
+  }
+
+  Future<void> _openWebsite(BuildContext context) async {
+    final raw = place.website!;
+    final uri = Uri.parse(
+      raw.startsWith('http://') || raw.startsWith('https://')
+          ? raw
+          : 'https://$raw',
+    );
+    await _launch(context, uri, 'Could not open the website.');
+  }
+
+  Future<void> _launch(
+    BuildContext context,
+    Uri uri,
+    String failureMessage,
+  ) async {
     final launched = await launchUrl(uri, mode: LaunchMode.externalApplication);
     if (!launched && context.mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Could not open the maps app.')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(failureMessage)));
     }
   }
 
@@ -50,7 +76,7 @@ class PlaceDetailScreen extends StatelessWidget {
                       imageUrl: place.imageUrl!,
                       fit: BoxFit.cover,
                       placeholder: (context, url) =>
-                          Container(color: AppColors.surface),
+                          const ImageLoadingPlaceholder(),
                       errorWidget: (context, url, error) =>
                           Container(color: AppColors.surface),
                     )
@@ -99,6 +125,23 @@ class PlaceDetailScreen extends StatelessWidget {
                     place.description,
                     style: AppTheme.poppins(color: AppColors.textSecondary),
                   ),
+                  if (place.phone != null || place.website != null) ...[
+                    const SizedBox(height: 20),
+                    Text('Contact', style: AppTheme.fredoka(fontSize: 18)),
+                    const SizedBox(height: 8),
+                    if (place.phone != null)
+                      _ContactRow(
+                        icon: LucideIcons.phone,
+                        label: place.phone!,
+                        onTap: () => _call(context),
+                      ),
+                    if (place.website != null)
+                      _ContactRow(
+                        icon: LucideIcons.globe,
+                        label: place.website!,
+                        onTap: () => _openWebsite(context),
+                      ),
+                  ],
                   const SizedBox(height: 24),
                   SizedBox(
                     width: double.infinity,
@@ -113,6 +156,41 @@ class PlaceDetailScreen extends StatelessWidget {
             ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+class _ContactRow extends StatelessWidget {
+  const _ContactRow({
+    required this.icon,
+    required this.label,
+    required this.onTap,
+  });
+
+  final IconData icon;
+  final String label;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      borderRadius: BorderRadius.circular(8),
+      onTap: onTap,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 6),
+        child: Row(
+          children: [
+            Icon(icon, size: 16, color: AppColors.primary),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Text(
+                label,
+                style: AppTheme.poppins(color: AppColors.primary),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
