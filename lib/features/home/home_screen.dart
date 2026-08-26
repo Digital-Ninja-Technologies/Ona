@@ -16,6 +16,9 @@ class HomeScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final destinations = ref.watch(popularDestinationsProvider);
     final experiences = ref.watch(popularExperiencesProvider);
+    final selectedDestinationId = ref.watch(
+      selectedExperienceDestinationProvider,
+    );
 
     return Scaffold(
       floatingActionButton: FloatingActionButton(
@@ -106,10 +109,53 @@ class HomeScreen extends ConsumerWidget {
               const SizedBox(height: 24),
               Text('Local Experiences', style: AppTheme.fredoka(fontSize: 18)),
               const SizedBox(height: 12),
+              destinations.maybeWhen(
+                data: (items) => items.isEmpty
+                    ? const SizedBox.shrink()
+                    : SizedBox(
+                        height: 36,
+                        child: ListView.separated(
+                          scrollDirection: Axis.horizontal,
+                          itemCount: items.length + 1,
+                          separatorBuilder: (_, _) => const SizedBox(width: 8),
+                          itemBuilder: (context, index) {
+                            final id = index == 0 ? null : items[index - 1].id;
+                            final label = index == 0
+                                ? 'All'
+                                : items[index - 1].name;
+                            final selected = selectedDestinationId == id;
+                            return ChoiceChip(
+                              label: Text(label),
+                              selected: selected,
+                              onSelected: (_) => ref
+                                  .read(
+                                    selectedExperienceDestinationProvider
+                                        .notifier,
+                                  )
+                                  .state = id,
+                              labelStyle: AppTheme.poppins(
+                                fontSize: 13,
+                                color: selected ? Colors.white : AppColors.text,
+                              ),
+                              backgroundColor: AppColors.surface,
+                              selectedColor: AppColors.primary,
+                              side: BorderSide.none,
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 4,
+                              ),
+                            );
+                          },
+                        ),
+                      ),
+                orElse: () => const SizedBox.shrink(),
+              ),
+              const SizedBox(height: 12),
               experiences.when(
                 data: (items) => items.isEmpty
                     ? Text(
-                        'No experiences yet',
+                        selectedDestinationId == null
+                            ? 'No experiences yet'
+                            : 'No experiences here yet',
                         style: AppTheme.poppins(color: AppColors.textSecondary),
                       )
                     : Column(

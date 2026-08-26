@@ -47,13 +47,16 @@ class DestinationsRepository {
         .toList();
   }
 
-  Future<List<Experience>> fetchExperiences({int limit = 10}) async {
+  Future<List<Experience>> fetchExperiences({
+    int limit = 10,
+    String? destinationId,
+  }) async {
     final client = _ref.read(supabaseProvider);
-    final response = await client
-        .from('experiences')
-        .select()
-        .order('rating', ascending: false)
-        .limit(limit);
+    var query = client.from('experiences').select();
+    if (destinationId != null) {
+      query = query.eq('destination_id', destinationId);
+    }
+    final response = await query.order('rating', ascending: false).limit(limit);
     return (response as List)
         .map((row) => Experience.fromJson(row as Map<String, dynamic>))
         .toList();
@@ -78,8 +81,17 @@ final popularDestinationsProvider = FutureProvider<List<Destination>>((ref) {
   return ref.watch(destinationsRepositoryProvider).fetchDestinations(limit: 10);
 });
 
+/// The destination the user has picked to filter "Local Experiences" on the
+/// home screen. Null means "All" (no filter).
+final selectedExperienceDestinationProvider = StateProvider<String?>(
+  (ref) => null,
+);
+
 final popularExperiencesProvider = FutureProvider<List<Experience>>((ref) {
-  return ref.watch(destinationsRepositoryProvider).fetchExperiences(limit: 5);
+  final destinationId = ref.watch(selectedExperienceDestinationProvider);
+  return ref
+      .watch(destinationsRepositoryProvider)
+      .fetchExperiences(limit: 5, destinationId: destinationId);
 });
 
 final destinationDetailProvider = FutureProvider.family<Destination, String>((
