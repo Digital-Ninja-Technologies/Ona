@@ -21,6 +21,10 @@ class AiAssistantScreen extends ConsumerStatefulWidget {
 }
 
 class _AiAssistantScreenState extends ConsumerState<AiAssistantScreen> {
+  // Only sent as a fallback payload if Gemini's quota is hit and the
+  // function falls back to Groq, which needs full context resent each turn.
+  static const _maxFallbackHistoryMessages = 20;
+
   final _inputController = TextEditingController();
   final _scrollController = ScrollController();
   final List<_Message> _messages = [
@@ -64,9 +68,18 @@ class _AiAssistantScreenState extends ConsumerState<AiAssistantScreen> {
     _scrollToBottom();
 
     try {
+      final history = _messages.length > _maxFallbackHistoryMessages
+          ? _messages.sublist(_messages.length - _maxFallbackHistoryMessages)
+          : _messages;
       final reply = await ref
           .read(aiAssistantRepositoryProvider)
-          .sendMessage(text, previousInteractionId: _lastInteractionId);
+          .sendMessage(
+            text,
+            previousInteractionId: _lastInteractionId,
+            history: history
+                .map((m) => {'role': m.role, 'content': m.content})
+                .toList(),
+          );
       setState(() {
         _messages.add(_Message(role: 'assistant', content: reply.text));
         _lastInteractionId = reply.interactionId ?? _lastInteractionId;

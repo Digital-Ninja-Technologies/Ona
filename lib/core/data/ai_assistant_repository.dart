@@ -16,13 +16,17 @@ class AiAssistantRepository {
 
   /// Sends one chat turn to the `ai-assistant` Supabase Edge Function, which
   /// proxies to the Gemini API using a server-side secret. Gemini tracks
-  /// conversation state server-side, so only the new [message] and the
+  /// conversation state server-side, so [message] and the
   /// [previousInteractionId] from the prior turn (null on the first turn)
-  /// need to be sent — not the full history. Throws if the function hasn't
-  /// been deployed / configured with GEMINI_API_KEY.
+  /// are normally enough. [history] (oldest first, ending with [message]) is
+  /// sent too, purely as a fallback: if Gemini's free-tier quota is hit, the
+  /// function falls back to Groq, which has no server-side memory and needs
+  /// the full conversation to answer with context. Throws if the function
+  /// hasn't been deployed / configured with GEMINI_API_KEY.
   Future<AiAssistantReply> sendMessage(
     String message, {
     String? previousInteractionId,
+    List<Map<String, String>> history = const [],
   }) async {
     final client = _ref.read(supabaseProvider);
     final response = await client.functions.invoke(
@@ -30,6 +34,7 @@ class AiAssistantRepository {
       body: {
         'message': message,
         'previousInteractionId': previousInteractionId,
+        'history': history,
       },
     );
     final data = response.data;

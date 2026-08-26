@@ -11,6 +11,15 @@
 // request sends only the newest user message plus the previous interaction's
 // id, instead of replaying the full history.
 //
+// Gemini's free tier caps gemini-3.7-flash at 20 requests/minute. When a
+// request is rejected for hitting that quota, this function falls back to
+// Groq's free tier (openai/gpt-oss-120b, 30 requests/minute) instead of
+// failing outright. Groq has no server-side conversation state, so the
+// fallback uses the full chat [history] the client sends alongside the new
+// message. Set GROQ_API_KEY to enable the fallback; without it, a
+// rate-limited Gemini request just fails as before.
+//   supabase secrets set GROQ_API_KEY=...
+//
 // Live web grounding uses Brave Search's free API tier (2,000 queries/month,
 // no card required — https://api.search.brave.com). When the latest user
 // message looks time-sensitive (prices, hours, weather, news, etc. — see
@@ -22,12 +31,15 @@
 //
 // Request body:  {
 //   "message": string,
-//   "previousInteractionId": string | null
+//   "previousInteractionId": string | null,
+//   "history": { "role": "user" | "assistant", "content": string }[] | null
 // }
-// Response body: { "reply": string, "interactionId": string }
+// Response body: { "reply": string, "interactionId": string | null }
 
 const GEMINI_API_KEY = Deno.env.get("GEMINI_API_KEY");
 const GEMINI_MODEL = Deno.env.get("GEMINI_MODEL") ?? "gemini-3.7-flash";
+const GROQ_API_KEY = Deno.env.get("GROQ_API_KEY");
+const GROQ_MODEL = Deno.env.get("GROQ_MODEL") ?? "openai/gpt-oss-120b";
 const BRAVE_API_KEY = Deno.env.get("BRAVE_API_KEY");
 
 const BASE_SYSTEM_PROMPT =
@@ -38,6 +50,11 @@ const BASE_SYSTEM_PROMPT =
   "bubble, not a markdown renderer — only use plain text, '### ' headers, " +
   "'**bold**', and '* ' bullets if you need structure; avoid nested lists, " +
   "links, tables, or other markdown.";
+
+interface HistoryMessage {
+  role: string;
+  content: string;
+}
 
 interface BraveResult {
   title: string;
@@ -107,6 +124,70 @@ function buildSystemInstruction(searchResults: BraveResult[]): string {
   );
 }
 
+/** True if a failed Gemini response looks like a free-tier quota hit. */
+function isRateLimited(status: number, errorText: string): boolean {
+  return (
+    status === 429 ||
+    /too_many_requests|RESOURCE_EXHAUSTED|quota/i.test(errorText)
+  );
+}
+
+/**
+ * Fallback call to Groq's free tier (OpenAI-compatible chat completions),
+ * used when Gemini's free-tier rate limit is hit. Groq has no server-side
+ * conversation state, so [history] (already including the newest user
+ * message) is sent in full instead of a chained interaction id.
+ */
+async function callGroq(
+  history: HistoryMessage[],
+  systemInstruction: string,
+): Promise<string> {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 20_000);
+
+  let response: Response;
+  try {
+    response = await fetch("https://api.groq.com/openai/v1/chat/completions", {
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
+        Authorization: `Bearer ${GROQ_API_KEY}`,
+      },
+      body: JSON.stringify({
+        model: GROQ_MODEL,
+        messages: [
+          { role: "system", content: systemInstruction },
+          ...history.map((m) => ({
+            role: m.role === "assistant" ? "assistant" : "user",
+            content: m.content,
+          })),
+        ],
+      }),
+      signal: controller.signal,
+    });
+  } catch (err) {
+    throw new Error(
+      controller.signal.aborted
+        ? "Groq request timed out after 20s"
+        : `Groq request failed: ${err}`,
+    );
+  } finally {
+    clearTimeout(timeout);
+  }
+
+  if (!response.ok) {
+    const errorText = await response.text();
+    throw new Error(`Groq API error: ${errorText}`);
+  }
+
+  const data = await response.json();
+  const text = data?.choices?.[0]?.message?.content;
+  if (typeof text !== "string") {
+    throw new Error("Unexpected response shape from Groq.");
+  }
+  return text;
+}
+
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers":
@@ -133,7 +214,7 @@ Deno.serve(async (req: Request) => {
   }
 
   try {
-    const { message, previousInteractionId } = await req.json();
+    const { message, previousInteractionId, history } = await req.json();
     if (typeof message !== "string" || message.trim().length === 0) {
       return jsonResponse({ error: "message is required" }, 400);
     }
@@ -141,48 +222,98 @@ Deno.serve(async (req: Request) => {
     const searchResults = needsSearch(message)
       ? await braveSearch(message)
       : [];
+    const systemInstruction = buildSystemInstruction(searchResults);
 
-    const response = await fetch(
-      "https://generativelanguage.googleapis.com/v1beta/interactions",
-      {
-        method: "POST",
-        headers: {
-          "content-type": "application/json",
-          "x-goog-api-key": GEMINI_API_KEY,
+    // Cap how long we wait on Gemini. Without this, a stalled response from
+    // Google hangs the whole function until Supabase's platform-level
+    // timeout kills it — slow, and it skips the Groq fallback entirely. A
+    // timeout is treated the same as a rate limit below: Gemini not
+    // answering in time is effectively "unavailable" either way.
+    const geminiController = new AbortController();
+    const geminiTimeout = setTimeout(() => geminiController.abort(), 20_000);
+
+    let geminiResponse: Response | null = null;
+    let geminiNetworkError: string | null = null;
+    try {
+      geminiResponse = await fetch(
+        "https://generativelanguage.googleapis.com/v1beta/interactions",
+        {
+          method: "POST",
+          headers: {
+            "content-type": "application/json",
+            "x-goog-api-key": GEMINI_API_KEY,
+          },
+          body: JSON.stringify({
+            model: GEMINI_MODEL,
+            system_instruction: systemInstruction,
+            input: message,
+            // A lightweight chat assistant doesn't need deep reasoning —
+            // keep thinking cheap so free-tier quota goes toward replies.
+            generation_config: { thinking_level: "low" },
+            ...(previousInteractionId
+              ? { previous_interaction_id: previousInteractionId }
+              : {}),
+          }),
+          signal: geminiController.signal,
         },
-        body: JSON.stringify({
-          model: GEMINI_MODEL,
-          system_instruction: buildSystemInstruction(searchResults),
-          input: message,
-          // A lightweight chat assistant doesn't need deep reasoning — keep
-          // thinking cheap so free-tier quota goes toward actual replies.
-          generation_config: { thinking_level: "low" },
-          ...(previousInteractionId
-            ? { previous_interaction_id: previousInteractionId }
-            : {}),
-        }),
-      },
-    );
-
-    if (!response.ok) {
-      const errorText = await response.text();
-      return jsonResponse({ error: `Gemini API error: ${errorText}` }, 502);
+      );
+    } catch (err) {
+      geminiNetworkError = geminiController.signal.aborted
+        ? "Gemini request timed out after 20s"
+        : `Gemini request failed: ${err}`;
+    } finally {
+      clearTimeout(geminiTimeout);
     }
 
-    const data = await response.json();
-    // The raw REST response has no top-level "output_text" — that's only a
-    // convenience property in Google's SDK wrappers. The real text lives in
-    // steps[].content[].text on "model_output" steps.
-    const steps = Array.isArray(data.steps) ? data.steps : [];
-    let reply = steps
-      .filter((step: { type: string }) => step.type === "model_output")
-      .flatMap((step: { content?: { type: string; text?: string }[] }) =>
-        step.content ?? []
-      )
-      .filter((block: { type: string }) => block.type === "text")
-      .map((block: { text?: string }) => block.text ?? "")
-      .join("")
-      .trim();
+    let reply: string;
+    let interactionId: string | null = null;
+
+    if (geminiResponse?.ok) {
+      const data = await geminiResponse.json();
+      // The raw REST response has no top-level "output_text" — that's only
+      // a convenience property in Google's SDK wrappers. The real text
+      // lives in steps[].content[].text on "model_output" steps.
+      const steps = Array.isArray(data.steps) ? data.steps : [];
+      reply = steps
+        .filter((step: { type: string }) => step.type === "model_output")
+        .flatMap(
+          (step: { content?: { type: string; text?: string }[] }) =>
+            step.content ?? [],
+        )
+        .filter((block: { type: string }) => block.type === "text")
+        .map((block: { text?: string }) => block.text ?? "")
+        .join("")
+        .trim();
+      interactionId = data.id ?? null;
+    } else {
+      const errorText =
+        geminiNetworkError ?? (await geminiResponse!.text());
+      const shouldFallBack =
+        geminiNetworkError !== null ||
+        isRateLimited(geminiResponse!.status, errorText);
+      if (!GROQ_API_KEY || !shouldFallBack) {
+        return jsonResponse({ error: `Gemini API error: ${errorText}` }, 502);
+      }
+      // Gemini is rate-limited, timed out, or otherwise unavailable — fall
+      // back to Groq using the full conversation so far. previousInteractionId
+      // is left untouched: once Gemini recovers, the next turn resumes that
+      // chain fresh.
+      const fallbackHistory: HistoryMessage[] = Array.isArray(history)
+        ? history
+        : [{ role: "user", content: message }];
+      try {
+        reply = await callGroq(fallbackHistory, systemInstruction);
+      } catch (groqError) {
+        return jsonResponse(
+          {
+            error:
+              `Gemini unavailable (${errorText}); Groq fallback also ` +
+              `failed: ${groqError}`,
+          },
+          502,
+        );
+      }
+    }
 
     if (searchResults.length > 0) {
       const sources = searchResults
@@ -191,7 +322,7 @@ Deno.serve(async (req: Request) => {
       reply += `\n\nSources:\n${sources}`;
     }
 
-    return jsonResponse({ reply, interactionId: data.id });
+    return jsonResponse({ reply, interactionId });
   } catch (error) {
     return jsonResponse({ error: String(error) }, 500);
   }
