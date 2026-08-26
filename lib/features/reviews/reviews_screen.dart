@@ -12,6 +12,7 @@ import '../../core/data/storage_repository.dart';
 import '../../core/models/review.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_theme.dart';
+import '../../core/widgets/error_view.dart';
 import '../auth/auth_controller.dart';
 
 class ReviewsScreen extends ConsumerStatefulWidget {
@@ -129,11 +130,9 @@ class _ReviewsScreenState extends ConsumerState<ReviewsScreen> {
             Expanded(
               child: reviewsAsync.when(
                 loading: () => const Center(child: CircularProgressIndicator()),
-                error: (error, _) => Center(
-                  child: Text(
-                    'Could not load reviews.',
-                    style: AppTheme.poppins(color: AppColors.error),
-                  ),
+                error: (error, _) => ErrorView(
+                  message: 'Could not load reviews.',
+                  onRetry: () => ref.invalidate(reviewsProvider(widget.target)),
                 ),
                 data: (reviews) => reviews.isEmpty
                     ? Center(

@@ -8,6 +8,7 @@ import '../../core/data/bookings_repository.dart';
 import '../../core/data/destinations_repository.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_theme.dart';
+import '../../core/widgets/error_view.dart';
 
 class BookingFlowScreen extends ConsumerStatefulWidget {
   const BookingFlowScreen({super.key, required this.experienceId});
@@ -116,11 +117,10 @@ class _BookingFlowScreenState extends ConsumerState<BookingFlowScreen> {
       appBar: AppBar(title: const Text('Complete Booking')),
       body: experienceAsync.when(
         loading: () => const Center(child: CircularProgressIndicator()),
-        error: (error, _) => Center(
-          child: Text(
-            'Could not load this experience.',
-            style: AppTheme.poppins(color: AppColors.error),
-          ),
+        error: (error, _) => ErrorView(
+          message: 'Could not load this experience.',
+          onRetry: () =>
+              ref.invalidate(experienceDetailProvider(widget.experienceId)),
         ),
         data: (experience) {
           final totalPrice = experience.price * _participants;

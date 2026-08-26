@@ -10,6 +10,7 @@ import '../../core/data/reviews_repository.dart';
 import '../../core/models/attraction.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_theme.dart';
+import '../../core/widgets/error_view.dart';
 
 class DestinationDetailScreen extends ConsumerWidget {
   const DestinationDetailScreen({super.key, required this.destinationId});
@@ -27,11 +28,9 @@ class DestinationDetailScreen extends ConsumerWidget {
     return Scaffold(
       body: destinationAsync.when(
         loading: () => const Center(child: CircularProgressIndicator()),
-        error: (error, _) => Center(
-          child: Text(
-            'Could not load this destination.',
-            style: AppTheme.poppins(color: AppColors.error),
-          ),
+        error: (error, _) => ErrorView(
+          message: 'Could not load this destination.',
+          onRetry: () => ref.invalidate(destinationDetailProvider(destinationId)),
         ),
         data: (destination) => CustomScrollView(
           slivers: [

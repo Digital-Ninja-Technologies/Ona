@@ -8,6 +8,7 @@ import '../../core/data/destinations_repository.dart';
 import '../../core/data/reviews_repository.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_theme.dart';
+import '../../core/widgets/error_view.dart';
 
 class ExperienceDetailScreen extends ConsumerWidget {
   const ExperienceDetailScreen({super.key, required this.experienceId});
@@ -21,11 +22,9 @@ class ExperienceDetailScreen extends ConsumerWidget {
     return Scaffold(
       body: experienceAsync.when(
         loading: () => const Center(child: CircularProgressIndicator()),
-        error: (error, _) => Center(
-          child: Text(
-            'Could not load this experience.',
-            style: AppTheme.poppins(color: AppColors.error),
-          ),
+        error: (error, _) => ErrorView(
+          message: 'Could not load this experience.',
+          onRetry: () => ref.invalidate(experienceDetailProvider(experienceId)),
         ),
         data: (experience) => CustomScrollView(
           slivers: [

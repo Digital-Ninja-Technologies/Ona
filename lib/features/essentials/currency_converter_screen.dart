@@ -5,6 +5,7 @@ import 'package:lucide_icons_flutter/lucide_icons.dart';
 import '../../core/data/currency_repository.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_theme.dart';
+import '../../core/widgets/error_view.dart';
 import 'currency_data.dart';
 
 class CurrencyConverterScreen extends ConsumerStatefulWidget {
@@ -86,16 +87,11 @@ class _CurrencyConverterScreenState
       body: SafeArea(
         child: ratesAsync.when(
           loading: () => const Center(child: CircularProgressIndicator()),
-          error: (error, _) => Center(
-            child: Padding(
-              padding: const EdgeInsets.all(24),
-              child: Text(
+          error: (error, _) => ErrorView(
+            message:
                 'Could not load exchange rates. Check your connection and '
                 'try again.',
-                textAlign: TextAlign.center,
-                style: AppTheme.poppins(color: AppColors.error),
-              ),
-            ),
+            onRetry: () => ref.invalidate(exchangeRatesProvider),
           ),
           data: (rates) {
             final codes = rates.keys.toList()..sort();

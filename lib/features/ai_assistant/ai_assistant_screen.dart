@@ -71,14 +71,14 @@ class _AiAssistantScreenState extends ConsumerState<AiAssistantScreen> {
         _messages.add(_Message(role: 'assistant', content: reply.text));
         _lastInteractionId = reply.interactionId ?? _lastInteractionId;
       });
-    } catch (error) {
+    } catch (_) {
       setState(
         () => _messages.add(
-          _Message(
+          const _Message(
             role: 'assistant',
             content:
                 "I'm having trouble connecting right now. Please try again "
-                "in a moment. ($error)",
+                "in a moment.",
           ),
         ),
       );
@@ -161,6 +161,7 @@ class _ChatBubble extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final isUser = message.role == 'user';
+    final color = isUser ? Colors.white : AppColors.text;
     return Align(
       alignment: isUser ? Alignment.centerRight : Alignment.centerLeft,
       child: Container(
@@ -173,14 +174,107 @@ class _ChatBubble extends StatelessWidget {
           color: isUser ? AppColors.primary : AppColors.surface,
           borderRadius: BorderRadius.circular(16),
         ),
-        child: Text(
-          message.content,
-          style: AppTheme.poppins(
-            color: isUser ? Colors.white : AppColors.text,
-          ),
-        ),
+        child: _MarkdownLite(text: message.content, color: color),
       ),
     );
+  }
+}
+
+/// Renders the small markdown subset the AI assistant actually produces —
+/// `### headers`, `**bold**`, and `* ` / `- ` bullets — as styled text
+/// instead of showing the raw syntax. Not a general markdown renderer; the
+/// app has no other markdown surface to justify pulling in a package for it.
+class _MarkdownLite extends StatelessWidget {
+  const _MarkdownLite({required this.text, required this.color});
+
+  final String text;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    final lines = text.split('\n');
+    final widgets = <Widget>[];
+
+    for (var i = 0; i < lines.length; i++) {
+      final line = lines[i];
+      final trimmed = line.trimLeft();
+
+      if (trimmed.isEmpty) {
+        widgets.add(const SizedBox(height: 8));
+        continue;
+      }
+
+      final headerMatch = RegExp(r'^(#{1,3})\s+(.*)$').firstMatch(trimmed);
+      if (headerMatch != null) {
+        widgets.add(
+          Padding(
+            padding: EdgeInsets.only(top: i == 0 ? 0 : 4, bottom: 4),
+            child: Text(
+              headerMatch.group(2)!,
+              style: AppTheme.fredoka(fontSize: 15, color: color),
+            ),
+          ),
+        );
+        continue;
+      }
+
+      final bulletMatch = RegExp(r'^[*-]\s+(.*)$').firstMatch(trimmed);
+      if (bulletMatch != null) {
+        widgets.add(
+          Padding(
+            padding: const EdgeInsets.only(bottom: 2),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text('•  ', style: AppTheme.poppins(color: color)),
+                Expanded(
+                  child: Text.rich(
+                    TextSpan(
+                      children: _parseInlineBold(
+                        bulletMatch.group(1)!,
+                        AppTheme.poppins(color: color),
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+        continue;
+      }
+
+      widgets.add(
+        Text.rich(
+          TextSpan(children: _parseInlineBold(line, AppTheme.poppins(color: color))),
+        ),
+      );
+    }
+
+    return Column(crossAxisAlignment: CrossAxisAlignment.start, children: widgets);
+  }
+
+  /// Splits `**bold**` runs out of [text] into bold/regular [TextSpan]s.
+  List<InlineSpan> _parseInlineBold(String text, TextStyle baseStyle) {
+    final spans = <InlineSpan>[];
+    final pattern = RegExp(r'\*\*(.+?)\*\*');
+    var cursor = 0;
+    for (final match in pattern.allMatches(text)) {
+      if (match.start > cursor) {
+        spans.add(TextSpan(text: text.substring(cursor, match.start), style: baseStyle));
+      }
+      spans.add(
+        TextSpan(
+          text: match.group(1),
+          style: baseStyle.copyWith(fontWeight: FontWeight.w700),
+        ),
+      );
+      cursor = match.end;
+    }
+    if (cursor < text.length) {
+      spans.add(TextSpan(text: text.substring(cursor), style: baseStyle));
+    }
+    return spans;
   }
 }
 

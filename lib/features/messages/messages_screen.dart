@@ -7,6 +7,7 @@ import '../../core/data/messages_repository.dart';
 import '../../core/models/conversation.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_theme.dart';
+import '../../core/widgets/error_view.dart';
 
 class MessagesScreen extends ConsumerWidget {
   const MessagesScreen({super.key});
@@ -22,11 +23,9 @@ class MessagesScreen extends ConsumerWidget {
           onRefresh: () async => ref.invalidate(conversationsProvider),
           child: conversationsAsync.when(
             loading: () => const Center(child: CircularProgressIndicator()),
-            error: (error, _) => Center(
-              child: Text(
-                'Could not load your messages.',
-                style: AppTheme.poppins(color: AppColors.error),
-              ),
+            error: (error, _) => ErrorView(
+              message: 'Could not load your messages.',
+              onRetry: () => ref.invalidate(conversationsProvider),
             ),
             data: (conversations) => conversations.isEmpty
                 ? LayoutBuilder(

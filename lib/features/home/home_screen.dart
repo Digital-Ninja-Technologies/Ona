@@ -7,6 +7,7 @@ import '../../core/data/destinations_repository.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/widgets/destination_card.dart';
+import '../../core/widgets/error_view.dart';
 
 class HomeScreen extends ConsumerWidget {
   const HomeScreen({super.key});
@@ -96,11 +97,9 @@ class HomeScreen extends ConsumerWidget {
                         ),
                   loading: () =>
                       const Center(child: CircularProgressIndicator()),
-                  error: (error, _) => Center(
-                    child: Text(
-                      'Could not load destinations',
-                      style: AppTheme.poppins(color: AppColors.error),
-                    ),
+                  error: (error, _) => ErrorView(
+                    message: 'Could not load destinations',
+                    onRetry: () => ref.invalidate(popularDestinationsProvider),
                   ),
                 ),
               ),
@@ -162,9 +161,9 @@ class HomeScreen extends ConsumerWidget {
                             .toList(),
                       ),
                 loading: () => const Center(child: CircularProgressIndicator()),
-                error: (error, _) => Text(
-                  'Could not load experiences',
-                  style: AppTheme.poppins(color: AppColors.error),
+                error: (error, _) => ErrorView(
+                  message: 'Could not load experiences',
+                  onRetry: () => ref.invalidate(popularExperiencesProvider),
                 ),
               ),
             ],

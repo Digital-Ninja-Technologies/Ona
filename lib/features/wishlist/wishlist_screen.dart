@@ -7,6 +7,7 @@ import '../../core/data/bookings_repository.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/widgets/destination_card.dart';
+import '../../core/widgets/error_view.dart';
 
 class WishlistScreen extends ConsumerWidget {
   const WishlistScreen({super.key});
@@ -22,11 +23,9 @@ class WishlistScreen extends ConsumerWidget {
           onRefresh: () async => ref.invalidate(savedDestinationsProvider),
           child: savedAsync.when(
             loading: () => const Center(child: CircularProgressIndicator()),
-            error: (error, _) => Center(
-              child: Text(
-                'Could not load your wishlist.',
-                style: AppTheme.poppins(color: AppColors.error),
-              ),
+            error: (error, _) => ErrorView(
+              message: 'Could not load your wishlist.',
+              onRetry: () => ref.invalidate(savedDestinationsProvider),
             ),
             data: (destinations) => destinations.isEmpty
                 ? LayoutBuilder(

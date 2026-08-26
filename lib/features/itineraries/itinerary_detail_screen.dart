@@ -7,6 +7,7 @@ import '../../core/data/itineraries_repository.dart';
 import '../../core/models/itinerary.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_theme.dart';
+import '../../core/widgets/error_view.dart';
 
 Itinerary? _findById(List<Itinerary> itineraries, String id) {
   for (final itinerary in itineraries) {
@@ -57,11 +58,9 @@ class ItineraryDetailScreen extends ConsumerWidget {
       body: SafeArea(
         child: itinerariesAsync.when(
           loading: () => const Center(child: CircularProgressIndicator()),
-          error: (error, _) => Center(
-            child: Text(
-              'Could not load this itinerary.',
-              style: AppTheme.poppins(color: AppColors.error),
-            ),
+          error: (error, _) => ErrorView(
+            message: 'Could not load this itinerary.',
+            onRetry: () => ref.invalidate(itinerariesProvider),
           ),
           data: (itineraries) {
             final itinerary = _findById(itineraries, itineraryId);

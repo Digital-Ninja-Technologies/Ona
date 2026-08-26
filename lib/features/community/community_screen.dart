@@ -9,6 +9,7 @@ import '../../core/data/community_repository.dart';
 import '../../core/models/community_post.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_theme.dart';
+import '../../core/widgets/error_view.dart';
 import '../auth/auth_controller.dart';
 
 const _postTypes = [
@@ -79,11 +80,9 @@ class CommunityScreen extends ConsumerWidget {
                 child: postsAsync.when(
                   loading: () =>
                       const Center(child: CircularProgressIndicator()),
-                  error: (error, _) => Center(
-                    child: Text(
-                      'Could not load the community feed.',
-                      style: AppTheme.poppins(color: AppColors.error),
-                    ),
+                  error: (error, _) => ErrorView(
+                    message: 'Could not load the community feed.',
+                    onRetry: () => ref.invalidate(communityPostsProvider),
                   ),
                   data: (posts) => posts.isEmpty
                       ? LayoutBuilder(

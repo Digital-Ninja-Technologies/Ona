@@ -9,6 +9,7 @@ import '../../core/data/messages_repository.dart';
 import '../../core/data/reviews_repository.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_theme.dart';
+import '../../core/widgets/error_view.dart';
 import '../auth/auth_controller.dart';
 
 class AgentDetailScreen extends ConsumerStatefulWidget {
@@ -61,11 +62,9 @@ class _AgentDetailScreenState extends ConsumerState<AgentDetailScreen> {
     return Scaffold(
       body: agentAsync.when(
         loading: () => const Center(child: CircularProgressIndicator()),
-        error: (error, _) => Center(
-          child: Text(
-            'Could not load this agent.',
-            style: AppTheme.poppins(color: AppColors.error),
-          ),
+        error: (error, _) => ErrorView(
+          message: 'Could not load this agent.',
+          onRetry: () => ref.invalidate(agentDetailProvider(widget.agentId)),
         ),
         data: (agent) => CustomScrollView(
           slivers: [

@@ -8,6 +8,7 @@ import '../../core/data/community_repository.dart';
 import '../../core/models/post_comment.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_theme.dart';
+import '../../core/widgets/error_view.dart';
 import '../auth/auth_controller.dart';
 
 class PostCommentsScreen extends ConsumerStatefulWidget {
@@ -67,11 +68,10 @@ class _PostCommentsScreenState extends ConsumerState<PostCommentsScreen> {
             Expanded(
               child: commentsAsync.when(
                 loading: () => const Center(child: CircularProgressIndicator()),
-                error: (error, _) => Center(
-                  child: Text(
-                    'Could not load comments.',
-                    style: AppTheme.poppins(color: AppColors.error),
-                  ),
+                error: (error, _) => ErrorView(
+                  message: 'Could not load comments.',
+                  onRetry: () =>
+                      ref.invalidate(postCommentsProvider(widget.postId)),
                 ),
                 data: (comments) => comments.isEmpty
                     ? Center(

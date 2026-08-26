@@ -9,6 +9,7 @@ import '../../core/data/messages_repository.dart';
 import '../../core/models/chat_message.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_theme.dart';
+import '../../core/widgets/error_view.dart';
 import '../auth/auth_controller.dart';
 
 class ChatScreen extends ConsumerStatefulWidget {
@@ -100,11 +101,10 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
             Expanded(
               child: messagesAsync.when(
                 loading: () => const Center(child: CircularProgressIndicator()),
-                error: (error, _) => Center(
-                  child: Text(
-                    'Could not load messages.',
-                    style: AppTheme.poppins(color: AppColors.error),
-                  ),
+                error: (error, _) => ErrorView(
+                  message: 'Could not load messages.',
+                  onRetry: () =>
+                      ref.invalidate(chatMessagesProvider(widget.conversationId)),
                 ),
                 data: (messages) {
                   if (messages.isEmpty) {

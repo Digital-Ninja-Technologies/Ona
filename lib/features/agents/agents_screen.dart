@@ -8,6 +8,7 @@ import '../../core/data/agents_repository.dart';
 import '../../core/models/travel_agent.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_theme.dart';
+import '../../core/widgets/error_view.dart';
 
 const _ratingFilters = [null, 4.5, 4.0];
 
@@ -63,11 +64,9 @@ class AgentsScreen extends ConsumerWidget {
                 child: agentsAsync.when(
                   loading: () =>
                       const Center(child: CircularProgressIndicator()),
-                  error: (error, _) => Center(
-                    child: Text(
-                      'Could not load travel agents.',
-                      style: AppTheme.poppins(color: AppColors.error),
-                    ),
+                  error: (error, _) => ErrorView(
+                    message: 'Could not load travel agents.',
+                    onRetry: () => ref.invalidate(agentsListProvider),
                   ),
                   data: (agents) => agents.isEmpty
                       ? LayoutBuilder(

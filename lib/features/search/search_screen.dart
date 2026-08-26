@@ -9,6 +9,7 @@ import '../../core/data/destinations_repository.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/widgets/destination_card.dart';
+import '../../core/widgets/error_view.dart';
 
 class SearchScreen extends ConsumerStatefulWidget {
   const SearchScreen({super.key});
@@ -92,11 +93,9 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
                         },
                       ),
                 loading: () => const Center(child: CircularProgressIndicator()),
-                error: (error, _) => Center(
-                  child: Text(
-                    'Search failed. Try again.',
-                    style: AppTheme.poppins(color: AppColors.error),
-                  ),
+                error: (error, _) => ErrorView(
+                  message: 'Search failed. Try again.',
+                  onRetry: () => ref.invalidate(searchResultsProvider),
                 ),
               ),
       ),

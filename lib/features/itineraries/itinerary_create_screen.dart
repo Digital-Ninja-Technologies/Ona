@@ -88,10 +88,12 @@ class _ItineraryCreateScreenState extends ConsumerState<ItineraryCreateScreen> {
       } else {
         setState(() => _draft = draft);
       }
-    } catch (error) {
+    } catch (_) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Could not generate itinerary: $error')),
+          const SnackBar(
+            content: Text('Could not generate itinerary. Try again.'),
+          ),
         );
       }
     } finally {
