@@ -2,21 +2,35 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../features/auth/auth_controller.dart';
 
+class AiAssistantReply {
+  const AiAssistantReply({required this.text, required this.interactionId});
+
+  final String text;
+  final String? interactionId;
+}
+
 class AiAssistantRepository {
   AiAssistantRepository(this._ref);
 
   final Ref _ref;
 
-  /// [history] is the full conversation so far, oldest first, as
-  /// `{'role': 'user' | 'assistant', 'content': '...'}` maps. Calls the
-  /// `ai-assistant` Supabase Edge Function, which proxies to the Anthropic
-  /// API using a server-side secret. Throws if the function hasn't been
-  /// deployed / configured with ANTHROPIC_API_KEY.
-  Future<String> sendMessage(List<Map<String, String>> history) async {
+  /// Sends one chat turn to the `ai-assistant` Supabase Edge Function, which
+  /// proxies to the Gemini API using a server-side secret. Gemini tracks
+  /// conversation state server-side, so only the new [message] and the
+  /// [previousInteractionId] from the prior turn (null on the first turn)
+  /// need to be sent — not the full history. Throws if the function hasn't
+  /// been deployed / configured with GEMINI_API_KEY.
+  Future<AiAssistantReply> sendMessage(
+    String message, {
+    String? previousInteractionId,
+  }) async {
     final client = _ref.read(supabaseProvider);
     final response = await client.functions.invoke(
       'ai-assistant',
-      body: {'messages': history},
+      body: {
+        'message': message,
+        'previousInteractionId': previousInteractionId,
+      },
     );
     final data = response.data;
     if (data is Map && data['error'] != null) {
@@ -25,7 +39,10 @@ class AiAssistantRepository {
     if (data is! Map || data['reply'] is! String) {
       throw Exception('Unexpected response from ai-assistant.');
     }
-    return data['reply'] as String;
+    return AiAssistantReply(
+      text: data['reply'] as String,
+      interactionId: data['interactionId'] as String?,
+    );
   }
 }
 

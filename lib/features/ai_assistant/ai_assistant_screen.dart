@@ -21,8 +21,6 @@ class AiAssistantScreen extends ConsumerStatefulWidget {
 }
 
 class _AiAssistantScreenState extends ConsumerState<AiAssistantScreen> {
-  static const _maxHistoryMessages = 20;
-
   final _inputController = TextEditingController();
   final _scrollController = ScrollController();
   final List<_Message> _messages = [
@@ -35,6 +33,7 @@ class _AiAssistantScreenState extends ConsumerState<AiAssistantScreen> {
     ),
   ];
   bool _sending = false;
+  String? _lastInteractionId;
 
   @override
   void dispose() {
@@ -65,19 +64,13 @@ class _AiAssistantScreenState extends ConsumerState<AiAssistantScreen> {
     _scrollToBottom();
 
     try {
-      // Cap the history sent upstream so a long-running chat doesn't grow
-      // the request (and cost) without bound.
-      final history = _messages.length > _maxHistoryMessages
-          ? _messages.sublist(_messages.length - _maxHistoryMessages)
-          : _messages;
       final reply = await ref
           .read(aiAssistantRepositoryProvider)
-          .sendMessage(
-            history.map((m) => {'role': m.role, 'content': m.content}).toList(),
-          );
-      setState(
-        () => _messages.add(_Message(role: 'assistant', content: reply)),
-      );
+          .sendMessage(text, previousInteractionId: _lastInteractionId);
+      setState(() {
+        _messages.add(_Message(role: 'assistant', content: reply.text));
+        _lastInteractionId = reply.interactionId ?? _lastInteractionId;
+      });
     } catch (error) {
       setState(
         () => _messages.add(

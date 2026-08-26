@@ -1,26 +1,33 @@
 // Supabase Edge Function: ai-assistant
 //
-// Proxies a chat conversation to the Anthropic Messages API using a
-// server-side secret (ANTHROPIC_API_KEY), so the key never ships inside the
-// Flutter app. Deploy with:
+// Proxies chat turns to the Gemini API (free tier) using a server-side
+// secret (GEMINI_API_KEY), so the key never ships inside the Flutter app.
+// Deploy with:
 //   supabase functions deploy ai-assistant
-//   supabase secrets set ANTHROPIC_API_KEY=sk-ant-...
+//   supabase secrets set GEMINI_API_KEY=...
+//
+// Uses Gemini's Interactions API (https://generativelanguage.googleapis.com/
+// v1beta/interactions), which tracks conversation state server-side — each
+// request sends only the newest user message plus the previous interaction's
+// id, instead of replaying the full history.
 //
 // Live web grounding uses Brave Search's free API tier (2,000 queries/month,
-// no card required — https://api.search.brave.com) instead of Anthropic's
-// built-in web_search tool, which costs $10 per 1,000 searches with no free
-// tier. When the latest user message looks time-sensitive (prices, hours,
-// weather, news, etc. — see SEARCH_TRIGGER_PATTERN), one Brave search runs
-// and the top results are injected into the prompt as context. Set
-// BRAVE_API_KEY to enable it; without it, or on a search failure, the
-// assistant just answers from training data — search never breaks the chat.
+// no card required — https://api.search.brave.com). When the latest user
+// message looks time-sensitive (prices, hours, weather, news, etc. — see
+// SEARCH_TRIGGER_PATTERN), one Brave search runs and the top results are
+// injected into the prompt as context. Set BRAVE_API_KEY to enable it;
+// without it, or on a search failure, the assistant just answers from
+// training data — search never breaks the chat.
 //   supabase secrets set BRAVE_API_KEY=...
 //
-// Request body:  { "messages": [{ "role": "user" | "assistant", "content": string }] }
-// Response body: { "reply": string }
+// Request body:  {
+//   "message": string,
+//   "previousInteractionId": string | null
+// }
+// Response body: { "reply": string, "interactionId": string }
 
-const ANTHROPIC_API_KEY = Deno.env.get("ANTHROPIC_API_KEY");
-const ANTHROPIC_MODEL = Deno.env.get("ANTHROPIC_MODEL") ?? "claude-sonnet-5";
+const GEMINI_API_KEY = Deno.env.get("GEMINI_API_KEY");
+const GEMINI_MODEL = Deno.env.get("GEMINI_MODEL") ?? "gemini-3.7-flash";
 const BRAVE_API_KEY = Deno.env.get("BRAVE_API_KEY");
 
 const BASE_SYSTEM_PROMPT =
@@ -80,7 +87,7 @@ async function braveSearch(query: string, count = 5): Promise<BraveResult[]> {
   }
 }
 
-function buildSystemPrompt(searchResults: BraveResult[]): string {
+function buildSystemInstruction(searchResults: BraveResult[]): string {
   if (searchResults.length === 0) return BASE_SYSTEM_PROMPT;
 
   const context = searchResults
@@ -115,56 +122,49 @@ Deno.serve(async (req: Request) => {
     return new Response("ok", { headers: corsHeaders });
   }
 
-  if (!ANTHROPIC_API_KEY) {
+  if (!GEMINI_API_KEY) {
     return jsonResponse(
-      { error: "ANTHROPIC_API_KEY is not configured on this project." },
+      { error: "GEMINI_API_KEY is not configured on this project." },
       500,
     );
   }
 
   try {
-    const { messages } = await req.json();
-    if (!Array.isArray(messages) || messages.length === 0) {
-      return jsonResponse({ error: "messages is required" }, 400);
+    const { message, previousInteractionId } = await req.json();
+    if (typeof message !== "string" || message.trim().length === 0) {
+      return jsonResponse({ error: "message is required" }, 400);
     }
 
-    const lastUserMessage = [...messages]
-      .reverse()
-      .find((m) => m.role === "user")?.content;
-    const searchResults =
-      lastUserMessage && needsSearch(String(lastUserMessage))
-        ? await braveSearch(String(lastUserMessage))
-        : [];
+    const searchResults = needsSearch(message)
+      ? await braveSearch(message)
+      : [];
 
-    const response = await fetch("https://api.anthropic.com/v1/messages", {
-      method: "POST",
-      headers: {
-        "content-type": "application/json",
-        "x-api-key": ANTHROPIC_API_KEY,
-        "anthropic-version": "2023-06-01",
+    const response = await fetch(
+      "https://generativelanguage.googleapis.com/v1beta/interactions",
+      {
+        method: "POST",
+        headers: {
+          "content-type": "application/json",
+          "x-goog-api-key": GEMINI_API_KEY,
+        },
+        body: JSON.stringify({
+          model: GEMINI_MODEL,
+          system_instruction: buildSystemInstruction(searchResults),
+          input: message,
+          ...(previousInteractionId
+            ? { previous_interaction_id: previousInteractionId }
+            : {}),
+        }),
       },
-      body: JSON.stringify({
-        model: ANTHROPIC_MODEL,
-        max_tokens: 1024,
-        system: buildSystemPrompt(searchResults),
-        messages: messages.map((message: { role: string; content: string }) => ({
-          role: message.role === "assistant" ? "assistant" : "user",
-          content: message.content,
-        })),
-      }),
-    });
+    );
 
     if (!response.ok) {
       const errorText = await response.text();
-      return jsonResponse({ error: `Anthropic API error: ${errorText}` }, 502);
+      return jsonResponse({ error: `Gemini API error: ${errorText}` }, 502);
     }
 
     const data = await response.json();
-    let reply = (data.content ?? [])
-      .filter((block: { type: string }) => block.type === "text")
-      .map((block: { text: string }) => block.text)
-      .join("")
-      .trim();
+    let reply = String(data.output_text ?? "").trim();
 
     if (searchResults.length > 0) {
       const sources = searchResults
@@ -173,7 +173,7 @@ Deno.serve(async (req: Request) => {
       reply += `\n\nSources:\n${sources}`;
     }
 
-    return jsonResponse({ reply });
+    return jsonResponse({ reply, interactionId: data.id });
   } catch (error) {
     return jsonResponse({ error: String(error) }, 500);
   }
