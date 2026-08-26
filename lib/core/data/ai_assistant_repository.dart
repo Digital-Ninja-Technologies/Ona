@@ -1,6 +1,9 @@
+import 'dart:convert';
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../features/auth/auth_controller.dart';
+import '../models/place_suggestion.dart';
 
 class AiAssistantReply {
   const AiAssistantReply({required this.text, required this.interactionId});
@@ -49,8 +52,58 @@ class AiAssistantRepository {
       interactionId: data['interactionId'] as String?,
     );
   }
+
+  /// Fetches AI-generated place suggestions for a [location] the user typed
+  /// manually — used when the app has no database destination matching it.
+  /// Calls `ai-assistant` with `structuredPlaces: true`, which returns
+  /// `reply` as a JSON array instead of chat prose. Throws if the function
+  /// errors or the reply isn't valid, parseable JSON.
+  Future<List<PlaceSuggestion>> fetchPlaces(String location) async {
+    final client = _ref.read(supabaseProvider);
+    final response = await client.functions.invoke(
+      'ai-assistant',
+      body: {
+        'message': 'List nice places to visit in $location.',
+        'structuredPlaces': true,
+      },
+    );
+    final data = response.data;
+    if (data is Map && data['error'] != null) {
+      throw Exception(data['error'].toString());
+    }
+    if (data is! Map || data['reply'] is! String) {
+      throw Exception('Unexpected response from ai-assistant.');
+    }
+
+    // Models occasionally wrap JSON in a markdown code fence despite being
+    // told not to — strip it defensively before parsing.
+    var raw = (data['reply'] as String).trim();
+    if (raw.startsWith('```')) {
+      raw = raw
+          .replaceFirst(RegExp(r'^```[a-zA-Z]*\n?'), '')
+          .replaceFirst(RegExp(r'```$'), '')
+          .trim();
+    }
+
+    final decoded = jsonDecode(raw);
+    if (decoded is! List) {
+      throw Exception('Unexpected places format from ai-assistant.');
+    }
+    return decoded
+        .whereType<Map<String, dynamic>>()
+        .map(PlaceSuggestion.fromJson)
+        .where((place) => place.name.isNotEmpty)
+        .toList();
+  }
 }
 
 final aiAssistantRepositoryProvider = Provider<AiAssistantRepository>((ref) {
   return AiAssistantRepository(ref);
 });
+
+/// AI-generated places for a manually-typed location, keyed by the trimmed
+/// location string so re-searching the same text reuses the cached result.
+final placesForLocationProvider = FutureProvider.family
+    .autoDispose<List<PlaceSuggestion>, String>((ref, location) {
+      return ref.watch(aiAssistantRepositoryProvider).fetchPlaces(location);
+    });

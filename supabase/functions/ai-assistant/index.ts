@@ -29,10 +29,17 @@
 // training data — search never breaks the chat.
 //   supabase secrets set BRAVE_API_KEY=...
 //
+// Set "structuredPlaces": true to get a JSON array of place suggestions
+// instead of a chat reply — used for "nice places to visit in <location>"
+// lookups. In that mode "reply" is a JSON string (parse it client-side), it
+// always searches for freshness regardless of the message content, and no
+// "Sources" footer is appended (it would break JSON parsing).
+//
 // Request body:  {
 //   "message": string,
 //   "previousInteractionId": string | null,
-//   "history": { "role": "user" | "assistant", "content": string }[] | null
+//   "history": { "role": "user" | "assistant", "content": string }[] | null,
+//   "structuredPlaces": boolean | null
 // }
 // Response body: { "reply": string, "interactionId": string | null }
 
@@ -50,6 +57,17 @@ const BASE_SYSTEM_PROMPT =
   "bubble, not a markdown renderer — only use plain text, '### ' headers, " +
   "'**bold**', and '* ' bullets if you need structure; avoid nested lists, " +
   "links, tables, or other markdown.";
+
+// Used instead of BASE_SYSTEM_PROMPT when the client asks for a structured
+// place list (structuredPlaces: true) rather than a chat reply — the output
+// is parsed as JSON client-side, so nothing else can go in the response.
+const PLACES_SYSTEM_PROMPT =
+  "You are a travel expert. Given a location, respond with ONLY a valid " +
+  'JSON array (no markdown, no code fences, no other text) of exactly 6 ' +
+  'objects shaped {"name": string, "description": string}, where ' +
+  "description is one short, appealing sentence about why to visit. If the " +
+  "location isn't a real, identifiable place, respond with an empty array: " +
+  "[].";
 
 interface HistoryMessage {
   role: string;
@@ -107,15 +125,18 @@ async function braveSearch(query: string, count = 5): Promise<BraveResult[]> {
   }
 }
 
-function buildSystemInstruction(searchResults: BraveResult[]): string {
-  if (searchResults.length === 0) return BASE_SYSTEM_PROMPT;
+function buildSystemInstruction(
+  basePrompt: string,
+  searchResults: BraveResult[],
+): string {
+  if (searchResults.length === 0) return basePrompt;
 
   const context = searchResults
     .map((r, i) => `${i + 1}. ${r.title} (${r.url})\n${r.description}`)
     .join("\n\n");
 
   return (
-    `${BASE_SYSTEM_PROMPT}\n\n` +
+    `${basePrompt}\n\n` +
     "Here are live web search results for the user's latest message. Use " +
     "them if relevant to give an up-to-date answer (prices, hours, weather, " +
     "events, news); ignore them if they don't apply. Don't mention that " +
@@ -214,15 +235,22 @@ Deno.serve(async (req: Request) => {
   }
 
   try {
-    const { message, previousInteractionId, history } = await req.json();
+    const { message, previousInteractionId, history, structuredPlaces } =
+      await req.json();
     if (typeof message !== "string" || message.trim().length === 0) {
       return jsonResponse({ error: "message is required" }, 400);
     }
 
-    const searchResults = needsSearch(message)
+    // Structured place lists always search (freshness matters more than
+    // quota here, and it's a deliberate one-off action, not chat spam);
+    // regular chat only searches when the message looks time-sensitive.
+    const searchResults = structuredPlaces || needsSearch(message)
       ? await braveSearch(message)
       : [];
-    const systemInstruction = buildSystemInstruction(searchResults);
+    const systemInstruction = buildSystemInstruction(
+      structuredPlaces ? PLACES_SYSTEM_PROMPT : BASE_SYSTEM_PROMPT,
+      searchResults,
+    );
 
     // Cap how long we wait on Gemini. Without this, a stalled response from
     // Google hangs the whole function until Supabase's platform-level
@@ -315,7 +343,7 @@ Deno.serve(async (req: Request) => {
       }
     }
 
-    if (searchResults.length > 0) {
+    if (!structuredPlaces && searchResults.length > 0) {
       const sources = searchResults
         .map((r) => `- ${r.title}: ${r.url}`)
         .join("\n");
