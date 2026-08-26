@@ -1,3 +1,5 @@
+import 'place_review.dart';
+
 /// An AI-generated place recommendation for a location typed by the user,
 /// as opposed to a [Destination]/[Experience] stored in the database.
 class PlaceSuggestion {
@@ -8,6 +10,7 @@ class PlaceSuggestion {
     this.address,
     this.phone,
     this.website,
+    this.reviews = const [],
   });
 
   final String name;
@@ -31,6 +34,10 @@ class PlaceSuggestion {
   /// Null for older cached entries, or if none is known.
   final String? website;
 
+  /// Review snippets pulled from the web for this place — see [PlaceReview].
+  /// Empty for older cached entries, or if none were found.
+  final List<PlaceReview> reviews;
+
   factory PlaceSuggestion.fromJson(Map<String, dynamic> json) {
     return PlaceSuggestion(
       name: json['name'] as String? ?? '',
@@ -39,6 +46,12 @@ class PlaceSuggestion {
       address: json['address'] as String?,
       phone: json['phone'] as String?,
       website: json['website'] as String?,
+      reviews:
+          (json['reviews'] as List<dynamic>?)
+              ?.whereType<Map<String, dynamic>>()
+              .map(PlaceReview.fromJson)
+              .toList() ??
+          const [],
     );
   }
 }

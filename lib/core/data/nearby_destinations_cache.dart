@@ -51,6 +51,7 @@ class NearbyDestinationsCache {
                 'address': p.address,
                 'phone': p.phone,
                 'website': p.website,
+                'reviews': p.reviews.map((r) => r.toJson()).toList(),
               },
             )
             .toList(),

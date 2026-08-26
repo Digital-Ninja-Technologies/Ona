@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:url_launcher/url_launcher.dart';
 
+import '../../core/models/place_review.dart';
 import '../../core/models/place_suggestion.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_theme.dart';
@@ -142,6 +143,21 @@ class PlaceDetailScreen extends StatelessWidget {
                         onTap: () => _openWebsite(context),
                       ),
                   ],
+                  if (place.reviews.isNotEmpty) ...[
+                    const SizedBox(height: 20),
+                    Text('Reviews', style: AppTheme.fredoka(fontSize: 18)),
+                    const SizedBox(height: 8),
+                    ...place.reviews.map(
+                      (review) => _ReviewCard(
+                        review: review,
+                        onTap: () => _launch(
+                          context,
+                          Uri.parse(review.url),
+                          'Could not open the review.',
+                        ),
+                      ),
+                    ),
+                  ],
                   const SizedBox(height: 24),
                   SizedBox(
                     width: double.infinity,
@@ -156,6 +172,53 @@ class PlaceDetailScreen extends StatelessWidget {
             ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+class _ReviewCard extends StatelessWidget {
+  const _ReviewCard({required this.review, required this.onTap});
+
+  final PlaceReview review;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 10),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(14),
+        onTap: onTap,
+        child: Container(
+          width: double.infinity,
+          padding: const EdgeInsets.all(14),
+          decoration: BoxDecoration(
+            color: AppColors.surface,
+            borderRadius: BorderRadius.circular(14),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                review.snippet,
+                style: AppTheme.poppins(fontSize: 13),
+                maxLines: 3,
+                overflow: TextOverflow.ellipsis,
+              ),
+              const SizedBox(height: 6),
+              Text(
+                review.source,
+                style: AppTheme.poppins(
+                  fontSize: 11,
+                  color: AppColors.textSecondary,
+                ),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }
