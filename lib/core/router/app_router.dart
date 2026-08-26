@@ -31,6 +31,7 @@ import '../../features/messages/chat_screen.dart';
 import '../../features/messages/messages_screen.dart';
 import '../../features/onboarding/interests_screen.dart';
 import '../../features/onboarding/welcome_screen.dart';
+import '../../features/place/place_detail_screen.dart';
 import '../../features/profile/profile_screen.dart';
 import '../../features/reviews/reviews_screen.dart';
 import '../../features/search/search_screen.dart';
@@ -38,6 +39,7 @@ import '../../features/shell/tab_shell.dart';
 import '../../features/splash/splash_screen.dart';
 import '../../features/wishlist/wishlist_screen.dart';
 import '../data/reviews_repository.dart';
+import '../models/place_suggestion.dart';
 
 final appRouterProvider = Provider<GoRouter>((ref) {
   final isSignedIn = ref.watch(isSignedInProvider);
@@ -133,6 +135,15 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: '/wishlist',
         builder: (context, state) => const WishlistScreen(),
+      ),
+      GoRoute(
+        path: '/place-detail',
+        redirect: (context, state) {
+          if (state.extra is! PlaceSuggestion) return '/tabs/home';
+          return null;
+        },
+        builder: (context, state) =>
+            PlaceDetailScreen(place: state.extra as PlaceSuggestion),
       ),
       GoRoute(
         path: '/reviews',

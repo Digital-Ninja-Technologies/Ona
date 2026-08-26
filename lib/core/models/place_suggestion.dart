@@ -5,6 +5,7 @@ class PlaceSuggestion {
     required this.name,
     required this.description,
     this.imageUrl,
+    this.address,
   });
 
   final String name;
@@ -15,11 +16,17 @@ class PlaceSuggestion {
   /// could be found (or the lookup failed) for this place.
   final String? imageUrl;
 
+  /// A short human-readable address/locality for this place, as suggested
+  /// by the LLM. Null for older cached entries saved before this field
+  /// existed, or if the model didn't provide one.
+  final String? address;
+
   factory PlaceSuggestion.fromJson(Map<String, dynamic> json) {
     return PlaceSuggestion(
       name: json['name'] as String? ?? '',
       description: json['description'] as String? ?? '',
       imageUrl: json['imageUrl'] as String?,
+      address: json['address'] as String?,
     );
   }
 }

@@ -32,7 +32,8 @@
 // Set "structuredPlaces": true to get a JSON array of place suggestions
 // instead of a chat reply — used for "nice places to visit in <location>"
 // lookups. In that mode "reply" is a JSON string of
-// {"name": string, "description": string, "imageUrl": string | null}[]
+// {"name": string, "description": string, "address": string | null,
+// "imageUrl": string | null}[]
 // (parse it client-side); it always searches for freshness regardless of
 // the message content, no "Sources" footer is appended (it would break
 // JSON parsing), and each place gets a real photo via a separate Brave
@@ -67,10 +68,13 @@ const BASE_SYSTEM_PROMPT =
 const PLACES_SYSTEM_PROMPT =
   "You are a travel expert. Given a location, respond with ONLY a valid " +
   'JSON array (no markdown, no code fences, no other text) of exactly 6 ' +
-  'objects shaped {"name": string, "description": string}, where ' +
-  "description is one short, appealing sentence about why to visit. If the " +
-  "location isn't a real, identifiable place, respond with an empty array: " +
-  "[].";
+  'objects shaped {"name": string, "description": string, "address": ' +
+  'string}, where description is one short, appealing sentence about why ' +
+  "to visit, and address is your best real-world street address or " +
+  "locality for the place (e.g. \"Ozumba Mbadiwe Ave, Victoria Island, " +
+  'Lagos, Nigeria") — never leave it blank, give your best estimate even ' +
+  "if approximate. If the location isn't a real, identifiable place, " +
+  "respond with an empty array: [].";
 
 interface HistoryMessage {
   role: string;

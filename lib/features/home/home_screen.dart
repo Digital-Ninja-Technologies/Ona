@@ -271,16 +271,10 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                                 final place = nearbyDestinations[index];
                                 return _PlaceCard(
                                   place: place,
-                                  onTap: () {
-                                    ref
-                                            .read(
-                                              selectedExperienceDestinationProvider
-                                                  .notifier,
-                                            )
-                                            .state =
-                                        null;
-                                    setState(() => _customLocation = place.name);
-                                  },
+                                  onTap: () => context.push(
+                                    '/place-detail',
+                                    extra: place,
+                                  ),
                                 );
                               },
                             ))
@@ -505,7 +499,13 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                                       padding: const EdgeInsets.only(
                                         bottom: 12,
                                       ),
-                                      child: _PlaceListTile(place: place),
+                                      child: _PlaceListTile(
+                                        place: place,
+                                        onTap: () => context.push(
+                                          '/place-detail',
+                                          extra: place,
+                                        ),
+                                      ),
                                     ),
                                   )
                                   .toList(),
@@ -601,56 +601,61 @@ class _PlaceCard extends StatelessWidget {
 /// A "Places to Visit" row — thumbnail + name/description, matching the
 /// destination detail screen's attraction-card visual pattern.
 class _PlaceListTile extends StatelessWidget {
-  const _PlaceListTile({required this.place});
+  const _PlaceListTile({required this.place, required this.onTap});
 
   final PlaceSuggestion place;
+  final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: AppColors.surface,
-        borderRadius: BorderRadius.circular(14),
-      ),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          ClipRRect(
-            borderRadius: BorderRadius.circular(10),
-            child: SizedBox(
-              width: 72,
-              height: 72,
-              child: place.imageUrl != null
-                  ? CachedNetworkImage(
-                      imageUrl: place.imageUrl!,
-                      fit: BoxFit.cover,
-                      placeholder: (context, url) =>
-                          Container(color: AppColors.border),
-                      errorWidget: (context, url, error) =>
-                          Container(color: AppColors.border),
-                    )
-                  : Container(color: AppColors.border),
+    return InkWell(
+      borderRadius: BorderRadius.circular(14),
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          color: AppColors.surface,
+          borderRadius: BorderRadius.circular(14),
+        ),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            ClipRRect(
+              borderRadius: BorderRadius.circular(10),
+              child: SizedBox(
+                width: 72,
+                height: 72,
+                child: place.imageUrl != null
+                    ? CachedNetworkImage(
+                        imageUrl: place.imageUrl!,
+                        fit: BoxFit.cover,
+                        placeholder: (context, url) =>
+                            Container(color: AppColors.border),
+                        errorWidget: (context, url, error) =>
+                            Container(color: AppColors.border),
+                      )
+                    : Container(color: AppColors.border),
+              ),
             ),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(place.name, style: AppTheme.fredoka(fontSize: 15)),
-                const SizedBox(height: 4),
-                Text(
-                  place.description,
-                  style: AppTheme.poppins(
-                    fontSize: 13,
-                    color: AppColors.textSecondary,
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(place.name, style: AppTheme.fredoka(fontSize: 15)),
+                  const SizedBox(height: 4),
+                  Text(
+                    place.description,
+                    style: AppTheme.poppins(
+                      fontSize: 13,
+                      color: AppColors.textSecondary,
+                    ),
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }

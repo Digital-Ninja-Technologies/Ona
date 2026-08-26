@@ -48,6 +48,7 @@ class NearbyDestinationsCache {
                 'name': p.name,
                 'description': p.description,
                 'imageUrl': p.imageUrl,
+                'address': p.address,
               },
             )
             .toList(),
