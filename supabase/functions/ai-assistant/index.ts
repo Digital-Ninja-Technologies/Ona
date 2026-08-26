@@ -6,66 +6,95 @@
 //   supabase functions deploy ai-assistant
 //   supabase secrets set ANTHROPIC_API_KEY=sk-ant-...
 //
-// The web_search server tool is enabled so Ona can pull current info (prices,
-// hours, events, conditions) from the live web instead of only its training
-// data. Each search is billed at $10/1,000 searches plus standard token
-// costs for the results — max_uses caps that per turn.
+// Live web grounding uses Brave Search's free API tier (2,000 queries/month,
+// no card required — https://api.search.brave.com) instead of Anthropic's
+// built-in web_search tool, which costs $10 per 1,000 searches with no free
+// tier. When the latest user message looks time-sensitive (prices, hours,
+// weather, news, etc. — see SEARCH_TRIGGER_PATTERN), one Brave search runs
+// and the top results are injected into the prompt as context. Set
+// BRAVE_API_KEY to enable it; without it, or on a search failure, the
+// assistant just answers from training data — search never breaks the chat.
+//   supabase secrets set BRAVE_API_KEY=...
 //
 // Request body:  { "messages": [{ "role": "user" | "assistant", "content": string }] }
 // Response body: { "reply": string }
 
 const ANTHROPIC_API_KEY = Deno.env.get("ANTHROPIC_API_KEY");
 const ANTHROPIC_MODEL = Deno.env.get("ANTHROPIC_MODEL") ?? "claude-sonnet-5";
+const BRAVE_API_KEY = Deno.env.get("BRAVE_API_KEY");
 
-const SYSTEM_PROMPT =
+const BASE_SYSTEM_PROMPT =
   "You are the Ona travel assistant. Help travelers discover destinations, " +
   "plan itineraries, find restaurants and activities, and answer practical " +
-  "travel questions (visas, packing, safety, budgeting). You have live web " +
-  "search — use it for anything time-sensitive (current prices, opening " +
-  "hours, weather, events, news) rather than relying on memory. Keep " +
-  "replies warm, concise, and focused on travel.";
+  "travel questions (visas, packing, safety, budgeting). Keep replies warm, " +
+  "concise, and focused on travel.";
 
-interface AnthropicCitation {
-  type: string;
-  url?: string;
-  title?: string;
-  cited_text?: string;
+interface BraveResult {
+  title: string;
+  url: string;
+  description: string;
 }
 
-interface AnthropicContentBlock {
-  type: string;
-  text?: string;
-  citations?: AnthropicCitation[];
+// Only search for messages that plausibly need live/current info — avoids
+// burning free-tier quota (and tacking on an irrelevant "Sources" footer) on
+// greetings, small talk, or questions answerable from stable knowledge.
+const SEARCH_TRIGGER_PATTERN =
+  /\b(price|prices|cost|costs|cheap|expensive|budget|exchange rate|currency|weather|forecast|temperature|rain|snow|climate|today|tonight|tomorrow|now|currently|current|latest|recent|update|updated|news|open|opening|closed|closing|hours|schedule|timing|event|events|festival|holiday|visa|entry requirement|passport requirement|covid|advisory|safety|strike|flight|flights|book|booking|availability|available)\b/i;
+
+function needsSearch(message: string): boolean {
+  return SEARCH_TRIGGER_PATTERN.test(message);
 }
 
 /**
- * Anthropic responses that use the web_search tool interleave text blocks
- * with server_tool_use / web_search_tool_result blocks, so the final answer
- * usually isn't content[0] — it's the last text block. Concatenate every
- * text block in order, and collect any cited sources so we can surface them.
+ * One free-tier Brave Search call for the given query. Returns an empty
+ * array (never throws) on missing key, network error, or non-2xx response,
+ * so a search hiccup degrades to "answer without web context" instead of
+ * failing the whole chat request.
  */
-function extractReply(content: AnthropicContentBlock[]): string {
-  const textParts: string[] = [];
-  const sources = new Map<string, string>(); // url -> title
+async function braveSearch(query: string, count = 5): Promise<BraveResult[]> {
+  if (!BRAVE_API_KEY) return [];
+  try {
+    const url = new URL("https://api.search.brave.com/res/v1/web/search");
+    url.searchParams.set("q", query);
+    url.searchParams.set("count", String(count));
 
-  for (const block of content) {
-    if (block.type !== "text" || !block.text) continue;
-    textParts.push(block.text);
-    for (const citation of block.citations ?? []) {
-      if (citation.url && !sources.has(citation.url)) {
-        sources.set(citation.url, citation.title ?? citation.url);
-      }
-    }
-  }
+    const response = await fetch(url, {
+      headers: {
+        Accept: "application/json",
+        "X-Subscription-Token": BRAVE_API_KEY,
+      },
+    });
+    if (!response.ok) return [];
 
-  let reply = textParts.join("").trim();
-  if (sources.size > 0) {
-    const list = [...sources.entries()]
-      .map(([url, title]) => `- ${title}: ${url}`)
-      .join("\n");
-    reply += `\n\nSources:\n${list}`;
+    const data = await response.json();
+    const results = data?.web?.results;
+    if (!Array.isArray(results)) return [];
+
+    return results.slice(0, count).map((result: Record<string, unknown>) => ({
+      title: String(result.title ?? ""),
+      url: String(result.url ?? ""),
+      description: String(result.description ?? ""),
+    }));
+  } catch {
+    return [];
   }
-  return reply;
+}
+
+function buildSystemPrompt(searchResults: BraveResult[]): string {
+  if (searchResults.length === 0) return BASE_SYSTEM_PROMPT;
+
+  const context = searchResults
+    .map((r, i) => `${i + 1}. ${r.title} (${r.url})\n${r.description}`)
+    .join("\n\n");
+
+  return (
+    `${BASE_SYSTEM_PROMPT}\n\n` +
+    "Here are live web search results for the user's latest message. Use " +
+    "them if relevant to give an up-to-date answer (prices, hours, weather, " +
+    "events, news); ignore them if they don't apply. Don't mention that " +
+    "you were given search results — just answer naturally.\n\n" +
+    `${context}`
+  );
 }
 
 const corsHeaders = {
@@ -99,6 +128,14 @@ Deno.serve(async (req: Request) => {
       return jsonResponse({ error: "messages is required" }, 400);
     }
 
+    const lastUserMessage = [...messages]
+      .reverse()
+      .find((m) => m.role === "user")?.content;
+    const searchResults =
+      lastUserMessage && needsSearch(String(lastUserMessage))
+        ? await braveSearch(String(lastUserMessage))
+        : [];
+
     const response = await fetch("https://api.anthropic.com/v1/messages", {
       method: "POST",
       headers: {
@@ -109,14 +146,11 @@ Deno.serve(async (req: Request) => {
       body: JSON.stringify({
         model: ANTHROPIC_MODEL,
         max_tokens: 1024,
-        system: SYSTEM_PROMPT,
+        system: buildSystemPrompt(searchResults),
         messages: messages.map((message: { role: string; content: string }) => ({
           role: message.role === "assistant" ? "assistant" : "user",
           content: message.content,
         })),
-        tools: [
-          { type: "web_search_20250305", name: "web_search", max_uses: 5 },
-        ],
       }),
     });
 
@@ -126,7 +160,18 @@ Deno.serve(async (req: Request) => {
     }
 
     const data = await response.json();
-    const reply = extractReply(data.content ?? []);
+    let reply = (data.content ?? [])
+      .filter((block: { type: string }) => block.type === "text")
+      .map((block: { text: string }) => block.text)
+      .join("")
+      .trim();
+
+    if (searchResults.length > 0) {
+      const sources = searchResults
+        .map((r) => `- ${r.title}: ${r.url}`)
+        .join("\n");
+      reply += `\n\nSources:\n${sources}`;
+    }
 
     return jsonResponse({ reply });
   } catch (error) {
