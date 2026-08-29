@@ -103,7 +103,7 @@ Deno.serve(async (req: Request) => {
     ["Specialties", specialties.join(", ") || "—"],
     ["Languages", languages.join(", ") || "—"],
     ["Years of experience", yearsExperience?.toString() ?? "—"],
-    ["Verification plan", plan ?? "—"],
+    ["Verification fee billing", plan ?? "—"],
     ["Applicant email", applicantEmail ?? "unknown"],
     ["Applicant user id", applicantId],
   ];

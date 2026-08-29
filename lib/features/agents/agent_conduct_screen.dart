@@ -18,30 +18,30 @@ const _conductPoints = [
       'destination.',
 ];
 
-class _VerificationPlan {
-  const _VerificationPlan(this.label, this.price, this.description);
+/// A billing cycle for the (single) verification fee — not separate fee
+/// tiers, just monthly vs. annual billing of the same fee.
+class _BillingCycle {
+  const _BillingCycle(this.label, this.price, this.unit, this.description);
   final String label;
   final String price;
+  final String unit;
   final String description;
 
-  String get summary => '$label — \$$price/month';
+  String get summary => '$label — \$$price/$unit';
 }
 
-const _plans = [
-  _VerificationPlan(
-    'Standard',
-    '105',
-    'Standard background and document verification.',
-  ),
-  _VerificationPlan(
-    'Priority',
-    '175',
-    'Faster, priority-reviewed verification.',
+const _billingCycles = [
+  _BillingCycle('Monthly', '15', 'month', 'Billed every month.'),
+  _BillingCycle(
+    'Annual',
+    '165',
+    'year',
+    'Billed once a year — save \$15 versus paying monthly.',
   ),
 ];
 
 /// Shown before the agent application form — the code of conduct every
-/// agent must follow, and the monthly verification fee. Selecting a plan
+/// agent must follow, and the verification fee. Selecting a billing cycle
 /// and agreeing is required before "Proceed" opens the form.
 class AgentConductScreen extends StatefulWidget {
   const AgentConductScreen({super.key});
@@ -51,10 +51,10 @@ class AgentConductScreen extends StatefulWidget {
 }
 
 class _AgentConductScreenState extends State<AgentConductScreen> {
-  int? _selectedPlan;
+  int? _selectedCycle;
   bool _agreed = false;
 
-  bool get _canProceed => _selectedPlan != null && _agreed;
+  bool get _canProceed => _selectedCycle != null && _agreed;
 
   @override
   Widget build(BuildContext context) {
@@ -108,20 +108,21 @@ class _AgentConductScreenState extends State<AgentConductScreen> {
                   ),
                   const SizedBox(height: 6),
                   Text(
-                    'A monthly fee applies once your application is '
-                    'approved — choose the plan you\'d like to apply for:',
+                    "There's a single verification fee once your "
+                    "application is approved — choose how you'd like to "
+                    "be billed:",
                     style: AppTheme.poppins(color: AppColors.textSecondary),
                   ),
                   const SizedBox(height: 14),
-                  ..._plans.asMap().entries.map((entry) {
+                  ..._billingCycles.asMap().entries.map((entry) {
                     final index = entry.key;
-                    final plan = entry.value;
-                    final selected = _selectedPlan == index;
+                    final cycle = entry.value;
+                    final selected = _selectedCycle == index;
                     return Padding(
                       padding: const EdgeInsets.only(bottom: 12),
                       child: InkWell(
                         borderRadius: BorderRadius.circular(14),
-                        onTap: () => setState(() => _selectedPlan = index),
+                        onTap: () => setState(() => _selectedCycle = index),
                         child: Container(
                           padding: const EdgeInsets.all(14),
                           decoration: BoxDecoration(
@@ -152,14 +153,15 @@ class _AgentConductScreenState extends State<AgentConductScreen> {
                                       CrossAxisAlignment.start,
                                   children: [
                                     Text(
-                                      '${plan.label} — \$${plan.price}/month',
+                                      '${cycle.label} — \$${cycle.price}/'
+                                      '${cycle.unit}',
                                       style: AppTheme.poppins(
                                         fontWeight: FontWeight.w600,
                                       ),
                                     ),
                                     const SizedBox(height: 2),
                                     Text(
-                                      plan.description,
+                                      cycle.description,
                                       style: AppTheme.poppins(
                                         fontSize: 12,
                                         color: AppColors.textSecondary,
@@ -212,7 +214,7 @@ class _AgentConductScreenState extends State<AgentConductScreen> {
                   onPressed: _canProceed
                       ? () => context.push(
                           '/agent/register',
-                          extra: _plans[_selectedPlan!].summary,
+                          extra: _billingCycles[_selectedCycle!].summary,
                         )
                       : null,
                   child: const Text('Proceed'),

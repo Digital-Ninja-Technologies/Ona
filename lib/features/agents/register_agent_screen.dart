@@ -25,8 +25,8 @@ List<String> _splitTags(String value) => value
 class RegisterAgentScreen extends ConsumerStatefulWidget {
   const RegisterAgentScreen({super.key, this.plan});
 
-  /// The verification plan chosen on [AgentConductScreen] — e.g.
-  /// "Standard — \$105/month" — included in the emailed application.
+  /// The verification fee billing cycle chosen on [AgentConductScreen] —
+  /// e.g. "Monthly — \$15/month" — included in the emailed application.
   final String? plan;
 
   @override
