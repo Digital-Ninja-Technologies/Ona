@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -134,58 +135,12 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
     }
   }
 
-  Future<void> _showMessageActions(ChatMessage message, bool isMe) async {
-    final action = await showModalBottomSheet<String>(
-      context: context,
-      builder: (context) => SafeArea(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            ListTile(
-              leading: const Icon(LucideIcons.copy),
-              title: const Text('Copy'),
-              onTap: () => Navigator.of(context).pop('copy'),
-            ),
-            ListTile(
-              leading: const Icon(LucideIcons.reply),
-              title: const Text('Reply'),
-              onTap: () => Navigator.of(context).pop('reply'),
-            ),
-            if (isMe) ...[
-              ListTile(
-                leading: const Icon(LucideIcons.pencil),
-                title: const Text('Edit'),
-                onTap: () => Navigator.of(context).pop('edit'),
-              ),
-              ListTile(
-                leading: Icon(LucideIcons.trash2, color: AppColors.error),
-                title: Text(
-                  'Delete',
-                  style: AppTheme.poppins(color: AppColors.error),
-                ),
-                onTap: () => Navigator.of(context).pop('delete'),
-              ),
-            ],
-          ],
-        ),
-      ),
-    );
-    if (!mounted || action == null) return;
-
-    switch (action) {
-      case 'copy':
-        await Clipboard.setData(ClipboardData(text: message.content));
-        if (mounted) {
-          ScaffoldMessenger.of(
-            context,
-          ).showSnackBar(const SnackBar(content: Text('Copied.')));
-        }
-      case 'reply':
-        _startReply(message);
-      case 'edit':
-        _startEdit(message);
-      case 'delete':
-        await _deleteMessage(message);
+  Future<void> _copyMessage(ChatMessage message) async {
+    await Clipboard.setData(ClipboardData(text: message.content));
+    if (mounted) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Copied.')));
     }
   }
 
@@ -328,7 +283,10 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                         repliedTo: message.replyToId != null
                             ? byId[message.replyToId]
                             : null,
-                        onLongPress: () => _showMessageActions(message, isMe),
+                        onCopy: () => _copyMessage(message),
+                        onReply: () => _startReply(message),
+                        onEdit: () => _startEdit(message),
+                        onDelete: () => _deleteMessage(message),
                       );
                     },
                   );
@@ -408,12 +366,19 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
   }
 }
 
+/// A message bubble whose long-press menu follows WhatsApp/iOS's native
+/// pattern — the bubble scales up over a blurred background with the
+/// action list appearing beside it — via [CupertinoContextMenu], rather
+/// than a Material bottom sheet.
 class _MessageBubble extends StatelessWidget {
   const _MessageBubble({
     required this.message,
     required this.isMe,
     required this.repliedTo,
-    required this.onLongPress,
+    required this.onCopy,
+    required this.onReply,
+    required this.onEdit,
+    required this.onDelete,
   });
 
   final ChatMessage message;
@@ -423,70 +388,111 @@ class _MessageBubble extends StatelessWidget {
   /// original is still loaded in this conversation.
   final ChatMessage? repliedTo;
 
-  final VoidCallback onLongPress;
+  final VoidCallback onCopy;
+  final VoidCallback onReply;
+  final VoidCallback onEdit;
+  final VoidCallback onDelete;
+
+  Widget _bubble(BuildContext context) {
+    return Container(
+      margin: const EdgeInsets.symmetric(vertical: 4),
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+      constraints: BoxConstraints(
+        maxWidth: MediaQuery.of(context).size.width * 0.72,
+      ),
+      decoration: BoxDecoration(
+        color: isMe ? AppColors.primary : AppColors.surface,
+        borderRadius: BorderRadius.circular(16),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          if (repliedTo != null) ...[
+            Container(
+              padding: const EdgeInsets.symmetric(
+                horizontal: 8,
+                vertical: 6,
+              ),
+              decoration: BoxDecoration(
+                color: (isMe ? Colors.white : AppColors.background)
+                    .withValues(alpha: 0.25),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Text(
+                repliedTo!.content,
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+                style: AppTheme.poppins(
+                  fontSize: 12,
+                  color: isMe ? Colors.white : AppColors.textSecondary,
+                ),
+              ),
+            ),
+            const SizedBox(height: 6),
+          ],
+          Text(
+            message.content,
+            style: AppTheme.poppins(color: isMe ? Colors.white : AppColors.text),
+          ),
+          const SizedBox(height: 2),
+          Text(
+            message.isEdited
+                ? '${DateFormat.Hm().format(message.createdAt)} · edited'
+                : DateFormat.Hm().format(message.createdAt),
+            style: AppTheme.poppins(
+              fontSize: 10,
+              color: isMe ? Colors.white70 : AppColors.textSecondary,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
     return Align(
       alignment: isMe ? Alignment.centerRight : Alignment.centerLeft,
-      child: GestureDetector(
-        onLongPress: onLongPress,
-        child: Container(
-          margin: const EdgeInsets.symmetric(vertical: 4),
-          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-          constraints: BoxConstraints(
-            maxWidth: MediaQuery.of(context).size.width * 0.72,
+      child: CupertinoContextMenu.builder(
+        actions: [
+          CupertinoContextMenuAction(
+            trailingIcon: CupertinoIcons.doc_on_doc,
+            onPressed: () {
+              Navigator.of(context).pop();
+              onCopy();
+            },
+            child: const Text('Copy'),
           ),
-          decoration: BoxDecoration(
-            color: isMe ? AppColors.primary : AppColors.surface,
-            borderRadius: BorderRadius.circular(16),
+          CupertinoContextMenuAction(
+            trailingIcon: CupertinoIcons.arrowshape_turn_up_left,
+            onPressed: () {
+              Navigator.of(context).pop();
+              onReply();
+            },
+            child: const Text('Reply'),
           ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              if (repliedTo != null) ...[
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 8,
-                    vertical: 6,
-                  ),
-                  decoration: BoxDecoration(
-                    color: (isMe ? Colors.white : AppColors.background)
-                        .withValues(alpha: 0.25),
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: Text(
-                    repliedTo!.content,
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                    style: AppTheme.poppins(
-                      fontSize: 12,
-                      color: isMe ? Colors.white : AppColors.textSecondary,
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 6),
-              ],
-              Text(
-                message.content,
-                style: AppTheme.poppins(
-                  color: isMe ? Colors.white : AppColors.text,
-                ),
-              ),
-              const SizedBox(height: 2),
-              Text(
-                message.isEdited
-                    ? '${DateFormat.Hm().format(message.createdAt)} · edited'
-                    : DateFormat.Hm().format(message.createdAt),
-                style: AppTheme.poppins(
-                  fontSize: 10,
-                  color: isMe ? Colors.white70 : AppColors.textSecondary,
-                ),
-              ),
-            ],
-          ),
-        ),
+          if (isMe) ...[
+            CupertinoContextMenuAction(
+              trailingIcon: CupertinoIcons.pencil,
+              onPressed: () {
+                Navigator.of(context).pop();
+                onEdit();
+              },
+              child: const Text('Edit'),
+            ),
+            CupertinoContextMenuAction(
+              isDestructiveAction: true,
+              trailingIcon: CupertinoIcons.delete,
+              onPressed: () {
+                Navigator.of(context).pop();
+                onDelete();
+              },
+              child: const Text('Delete'),
+            ),
+          ],
+        ],
+        builder: (context, animation) => _bubble(context),
       ),
     );
   }
