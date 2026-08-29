@@ -1,15 +1,18 @@
 import 'dart:async';
 
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:image_picker/image_picker.dart';
 import 'package:intl/intl.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 import '../../core/data/messages_repository.dart';
 import '../../core/data/moderation_repository.dart';
+import '../../core/data/storage_repository.dart';
 import '../../core/models/chat_message.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_theme.dart';
@@ -40,8 +43,12 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
 
   // Non-null while editing a previously-sent message — the input is
   // prefilled with its content and _send() updates it in place instead of
-  // posting a new message.
+  // posting a new message. Editing is text-only (no swapping the image).
   ChatMessage? _editingMessage;
+
+  // A photo picked but not yet sent — shown as a preview above the input,
+  // uploaded only once the user actually hits send.
+  ({Uint8List bytes, String extension})? _pickedImage;
 
   @override
   void initState() {
@@ -90,7 +97,8 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
     setState(() {
       _replyingTo = null;
       _editingMessage = message;
-      _inputController.text = message.content;
+      _pickedImage = null;
+      _inputController.text = message.content ?? '';
     });
     _inputFocusNode.requestFocus();
   }
@@ -101,6 +109,20 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
       _editingMessage = null;
       _inputController.clear();
     });
+  }
+
+  Future<void> _pickImage() async {
+    final file = await ImagePicker().pickImage(
+      source: ImageSource.gallery,
+      imageQuality: 80,
+      maxWidth: 1600,
+    );
+    if (file == null) return;
+    final bytes = await file.readAsBytes();
+    final extension = file.name.contains('.')
+        ? file.name.split('.').last
+        : 'jpg';
+    setState(() => _pickedImage = (bytes: bytes, extension: extension));
   }
 
   Future<void> _deleteMessage(ChatMessage message) async {
@@ -136,7 +158,8 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
   }
 
   Future<void> _copyMessage(ChatMessage message) async {
-    await Clipboard.setData(ClipboardData(text: message.content));
+    if (message.content == null) return;
+    await Clipboard.setData(ClipboardData(text: message.content!));
     if (mounted) {
       ScaffoldMessenger.of(
         context,
@@ -146,9 +169,10 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
 
   Future<void> _send() async {
     final content = _inputController.text.trim();
-    if (content.isEmpty || _sending) return;
+    if (_sending) return;
 
     if (_editingMessage != null) {
+      if (content.isEmpty) return;
       final editing = _editingMessage!;
       setState(() => _sending = true);
       try {
@@ -169,19 +193,35 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
       return;
     }
 
+    final pickedImage = _pickedImage;
+    if (content.isEmpty && pickedImage == null) return;
+
     final replyToId = _replyingTo?.id;
     setState(() => _sending = true);
     _inputController.clear();
     try {
+      String? imageUrl;
+      if (pickedImage != null) {
+        imageUrl = await ref
+            .read(storageRepositoryProvider)
+            .uploadImage(pickedImage.bytes, extension: pickedImage.extension);
+      }
       await ref
           .read(messagesRepositoryProvider)
           .sendMessage(
             conversationId: widget.conversationId,
-            content: content,
+            content: content.isEmpty ? null : content,
+            imageUrl: imageUrl,
             replyToId: replyToId,
           );
       ref.invalidate(chatMessagesProvider(widget.conversationId));
-      if (mounted) setState(() => _replyingTo = null);
+      ref.invalidate(conversationsProvider);
+      if (mounted) {
+        setState(() {
+          _replyingTo = null;
+          _pickedImage = null;
+        });
+      }
       _scrollToBottom();
     } catch (_) {
       _inputController.text = content;
@@ -307,7 +347,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                       child: Text(
                         _editingMessage != null
                             ? 'Editing message'
-                            : 'Replying to "${_replyingTo!.content}"',
+                            : 'Replying to "${_replyingTo!.previewText}"',
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                         style: AppTheme.poppins(
@@ -327,6 +367,46 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                   ],
                 ),
               ),
+            if (_pickedImage != null)
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 8,
+                ),
+                color: AppColors.surface,
+                child: Row(
+                  children: [
+                    ClipRRect(
+                      borderRadius: BorderRadius.circular(8),
+                      child: Image.memory(
+                        _pickedImage!.bytes,
+                        width: 44,
+                        height: 44,
+                        fit: BoxFit.cover,
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Text(
+                        'Photo ready to send',
+                        style: AppTheme.poppins(
+                          fontSize: 12,
+                          color: AppColors.textSecondary,
+                        ),
+                      ),
+                    ),
+                    GestureDetector(
+                      onTap: () => setState(() => _pickedImage = null),
+                      child: const Icon(
+                        LucideIcons.x,
+                        size: 16,
+                        color: AppColors.textSecondary,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
               decoration: const BoxDecoration(
@@ -334,6 +414,12 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
               ),
               child: Row(
                 children: [
+                  if (_editingMessage == null)
+                    IconButton(
+                      icon: const Icon(LucideIcons.image),
+                      color: AppColors.textSecondary,
+                      onPressed: _sending ? null : _pickImage,
+                    ),
                   Expanded(
                     child: TextField(
                       controller: _inputController,
@@ -394,9 +480,13 @@ class _MessageBubble extends StatelessWidget {
   final VoidCallback onDelete;
 
   Widget _bubble(BuildContext context) {
+    final hasImage = message.imageUrl != null;
     return Container(
       margin: const EdgeInsets.symmetric(vertical: 4),
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+      padding: EdgeInsets.symmetric(
+        horizontal: hasImage ? 8 : 14,
+        vertical: hasImage ? 8 : 10,
+      ),
       constraints: BoxConstraints(
         maxWidth: MediaQuery.of(context).size.width * 0.72,
       ),
@@ -405,48 +495,80 @@ class _MessageBubble extends StatelessWidget {
         borderRadius: BorderRadius.circular(16),
       ),
       child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          if (repliedTo != null) ...[
-            Container(
-              padding: const EdgeInsets.symmetric(
-                horizontal: 8,
-                vertical: 6,
-              ),
-              decoration: BoxDecoration(
-                color: (isMe ? Colors.white : AppColors.background)
-                    .withValues(alpha: 0.25),
-                borderRadius: BorderRadius.circular(8),
-              ),
-              child: Text(
-                repliedTo!.content,
-                maxLines: 2,
-                overflow: TextOverflow.ellipsis,
-                style: AppTheme.poppins(
-                  fontSize: 12,
-                  color: isMe ? Colors.white : AppColors.textSecondary,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            if (repliedTo != null) ...[
+              Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 8,
+                  vertical: 6,
+                ),
+                decoration: BoxDecoration(
+                  color: (isMe ? Colors.white : AppColors.background)
+                      .withValues(alpha: 0.25),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Text(
+                  repliedTo!.previewText,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: AppTheme.poppins(
+                    fontSize: 12,
+                    color: isMe ? Colors.white : AppColors.textSecondary,
+                  ),
                 ),
               ),
+              const SizedBox(height: 6),
+            ],
+            if (message.imageUrl != null) ...[
+              ClipRRect(
+                borderRadius: BorderRadius.circular(12),
+                child: CachedNetworkImage(
+                  imageUrl: message.imageUrl!,
+                  fit: BoxFit.cover,
+                  width: 220,
+                  height: 220,
+                  placeholder: (context, url) => Container(
+                    width: 220,
+                    height: 220,
+                    color: AppColors.background,
+                    child: const Center(
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    ),
+                  ),
+                  errorWidget: (context, url, error) => Container(
+                    width: 220,
+                    height: 220,
+                    color: AppColors.background,
+                    child: const Icon(
+                      LucideIcons.imageOff,
+                      color: AppColors.textSecondary,
+                    ),
+                  ),
+                ),
+              ),
+              if (message.content != null) const SizedBox(height: 6),
+            ],
+            if (message.content != null)
+              Text(
+                message.content!,
+                style: AppTheme.poppins(
+                  color: isMe ? Colors.white : AppColors.text,
+                ),
+              ),
+            const SizedBox(height: 2),
+            Text(
+              message.isEdited
+                  ? '${DateFormat.Hm().format(message.createdAt)} · edited'
+                  : DateFormat.Hm().format(message.createdAt),
+              style: AppTheme.poppins(
+                fontSize: 10,
+                color: isMe ? Colors.white70 : AppColors.textSecondary,
+              ),
             ),
-            const SizedBox(height: 6),
           ],
-          Text(
-            message.content,
-            style: AppTheme.poppins(color: isMe ? Colors.white : AppColors.text),
-          ),
-          const SizedBox(height: 2),
-          Text(
-            message.isEdited
-                ? '${DateFormat.Hm().format(message.createdAt)} · edited'
-                : DateFormat.Hm().format(message.createdAt),
-            style: AppTheme.poppins(
-              fontSize: 10,
-              color: isMe ? Colors.white70 : AppColors.textSecondary,
-            ),
-          ),
-        ],
-      ),
+        ),
     );
   }
 
@@ -456,14 +578,15 @@ class _MessageBubble extends StatelessWidget {
       alignment: isMe ? Alignment.centerRight : Alignment.centerLeft,
       child: CupertinoContextMenu.builder(
         actions: [
-          CupertinoContextMenuAction(
-            trailingIcon: CupertinoIcons.doc_on_doc,
-            onPressed: () {
-              Navigator.of(context).pop();
-              onCopy();
-            },
-            child: const Text('Copy'),
-          ),
+          if (message.content != null)
+            CupertinoContextMenuAction(
+              trailingIcon: CupertinoIcons.doc_on_doc,
+              onPressed: () {
+                Navigator.of(context).pop();
+                onCopy();
+              },
+              child: const Text('Copy'),
+            ),
           CupertinoContextMenuAction(
             trailingIcon: CupertinoIcons.arrowshape_turn_up_left,
             onPressed: () {
@@ -473,14 +596,15 @@ class _MessageBubble extends StatelessWidget {
             child: const Text('Reply'),
           ),
           if (isMe) ...[
-            CupertinoContextMenuAction(
-              trailingIcon: CupertinoIcons.pencil,
-              onPressed: () {
-                Navigator.of(context).pop();
-                onEdit();
-              },
-              child: const Text('Edit'),
-            ),
+            if (message.content != null)
+              CupertinoContextMenuAction(
+                trailingIcon: CupertinoIcons.pencil,
+                onPressed: () {
+                  Navigator.of(context).pop();
+                  onEdit();
+                },
+                child: const Text('Edit'),
+              ),
             CupertinoContextMenuAction(
               isDestructiveAction: true,
               trailingIcon: CupertinoIcons.delete,

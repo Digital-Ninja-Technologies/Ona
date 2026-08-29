@@ -3,8 +3,9 @@ class ChatMessage {
     required this.id,
     required this.conversationId,
     required this.senderId,
-    required this.content,
     required this.createdAt,
+    this.content,
+    this.imageUrl,
     this.replyToId,
     this.editedAt,
   });
@@ -12,8 +13,13 @@ class ChatMessage {
   final String id;
   final String conversationId;
   final String senderId;
-  final String content;
   final DateTime createdAt;
+
+  /// Null for an image-only message.
+  final String? content;
+
+  /// Non-null when this message carries a shared photo.
+  final String? imageUrl;
 
   /// The message this one is replying to, if any — resolved client-side
   /// against the conversation's already-loaded message list rather than
@@ -25,12 +31,18 @@ class ChatMessage {
 
   bool get isEdited => editedAt != null;
 
+  /// Short text for previews (conversation list, reply quotes) — the
+  /// message's own content, or a "📷 Photo" placeholder for an image-only
+  /// message.
+  String get previewText => content ?? (imageUrl != null ? '📷 Photo' : '');
+
   factory ChatMessage.fromJson(Map<String, dynamic> json) {
     return ChatMessage(
       id: json['id'] as String,
       conversationId: json['conversation_id'] as String,
       senderId: json['sender_id'] as String,
-      content: json['content'] as String,
+      content: json['content'] as String?,
+      imageUrl: json['image_url'] as String?,
       createdAt: DateTime.parse(json['created_at'] as String),
       replyToId: json['reply_to_id'] as String?,
       editedAt: json['edited_at'] != null

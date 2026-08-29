@@ -126,11 +126,14 @@ class MessagesRepository {
           (myLastReadAt == null ||
               lastMessageAt.isAfter(DateTime.parse(myLastReadAt)));
 
+      final lastContent = lastMessageRow?['content'] as String?;
+      final lastImageUrl = lastMessageRow?['image_url'] as String?;
       conversations.add(
         Conversation(
           id: id,
           otherUser: profileOrFallback(profiles, otherUserId),
-          lastMessage: lastMessageRow?['content'] as String?,
+          lastMessage:
+              lastContent ?? (lastImageUrl != null ? '📷 Photo' : null),
           lastMessageAt: lastMessageAt,
           lastMessageSenderId: lastMessageSenderId,
           isUnread: isUnread,
@@ -278,16 +281,23 @@ class MessagesRepository {
         .toList();
   }
 
+  /// Sends a message — [content], [imageUrl], or both must be given.
   Future<void> sendMessage({
     required String conversationId,
-    required String content,
+    String? content,
+    String? imageUrl,
     String? replyToId,
   }) async {
+    assert(
+      content != null || imageUrl != null,
+      'sendMessage needs content, an imageUrl, or both.',
+    );
     final client = _ref.read(supabaseProvider);
     await client.from('messages').insert({
       'conversation_id': conversationId,
       'sender_id': _userId,
       'content': content,
+      'image_url': imageUrl,
       'reply_to_id': replyToId,
     });
   }
