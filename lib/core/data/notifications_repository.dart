@@ -59,6 +59,11 @@ class NotificationsRepository {
         .eq('user_id', userId)
         .eq('read', false);
   }
+
+  Future<void> deleteNotification(String id) async {
+    final client = _ref.read(supabaseProvider);
+    await client.from('notifications').delete().eq('id', id);
+  }
 }
 
 final notificationsRepositoryProvider = Provider<NotificationsRepository>((

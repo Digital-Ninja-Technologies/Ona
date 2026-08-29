@@ -48,6 +48,24 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
     }
   }
 
+  Future<void> _delete(AppNotification notification) async {
+    try {
+      await ref
+          .read(notificationsRepositoryProvider)
+          .deleteNotification(notification.id);
+    } catch (_) {
+      // The item's already gone from the list optimistically via
+      // Dismissible; a refresh will bring it back if the delete failed.
+      ref.invalidate(notificationsProvider);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Could not delete notification.')),
+        );
+      }
+    }
+    ref.invalidate(unreadNotificationsCountProvider);
+  }
+
   @override
   Widget build(BuildContext context) {
     final notificationsAsync = ref.watch(notificationsProvider);
@@ -96,9 +114,23 @@ class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
                     const Divider(height: 1, indent: 20, endIndent: 20),
                 itemBuilder: (context, index) {
                   final notification = notifications[index];
-                  return _NotificationTile(
-                    notification: notification,
-                    onTap: () => _open(notification),
+                  return Dismissible(
+                    key: ValueKey(notification.id),
+                    direction: DismissDirection.endToStart,
+                    background: Container(
+                      alignment: Alignment.centerRight,
+                      padding: const EdgeInsets.symmetric(horizontal: 24),
+                      color: AppColors.error,
+                      child: const Icon(
+                        LucideIcons.trash2,
+                        color: Colors.white,
+                      ),
+                    ),
+                    onDismissed: (_) => _delete(notification),
+                    child: _NotificationTile(
+                      notification: notification,
+                      onTap: () => _open(notification),
+                    ),
                   );
                 },
               );
