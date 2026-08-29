@@ -270,7 +270,9 @@ class MessagesRepository {
         .from('messages')
         .select()
         .eq('conversation_id', conversationId)
-        .order('created_at');
+        // order()'s `ascending` defaults to false in this postgrest-dart
+        // version — without this, messages render newest-first.
+        .order('created_at', ascending: true);
     return (response as List)
         .map((row) => ChatMessage.fromJson(row as Map<String, dynamic>))
         .toList();
@@ -279,13 +281,35 @@ class MessagesRepository {
   Future<void> sendMessage({
     required String conversationId,
     required String content,
+    String? replyToId,
   }) async {
     final client = _ref.read(supabaseProvider);
     await client.from('messages').insert({
       'conversation_id': conversationId,
       'sender_id': _userId,
       'content': content,
+      'reply_to_id': replyToId,
     });
+  }
+
+  /// Edits a message the signed-in user sent — RLS restricts this to the
+  /// sender.
+  Future<void> editMessage(String messageId, String content) async {
+    final client = _ref.read(supabaseProvider);
+    await client
+        .from('messages')
+        .update({
+          'content': content,
+          'edited_at': DateTime.now().toUtc().toIso8601String(),
+        })
+        .eq('id', messageId);
+  }
+
+  /// Deletes a message the signed-in user sent — RLS restricts this to the
+  /// sender.
+  Future<void> deleteMessage(String messageId) async {
+    final client = _ref.read(supabaseProvider);
+    await client.from('messages').delete().eq('id', messageId);
   }
 }
 

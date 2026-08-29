@@ -224,7 +224,9 @@ class CommunityRepository {
         .from('post_comments')
         .select()
         .eq('post_id', postId)
-        .order('created_at');
+        // order()'s `ascending` defaults to false in this postgrest-dart
+        // version — without this, comments render newest-first.
+        .order('created_at', ascending: true);
     final commentRows = List<Map<String, dynamic>>.from(rows as List);
     if (commentRows.isEmpty) return [];
     final authorIds = commentRows.map((row) => row['user_id'] as String);
