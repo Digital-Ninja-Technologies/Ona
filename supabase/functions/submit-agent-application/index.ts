@@ -24,6 +24,7 @@
 //     "languages": string[],
 //     "yearsExperience": number | null,
 //     "imageUrl": string | null,
+//     "plan": string | null,
 //     "applicantEmail": string,
 //     "applicantId": string
 //   }
@@ -90,6 +91,7 @@ Deno.serve(async (req: Request) => {
   const yearsExperience =
     typeof body.yearsExperience === "number" ? body.yearsExperience : null;
   const imageUrl = typeof body.imageUrl === "string" ? body.imageUrl : null;
+  const plan = typeof body.plan === "string" ? body.plan : null;
   const applicantEmail =
     typeof body.applicantEmail === "string" ? body.applicantEmail : null;
   const applicantId =
@@ -101,6 +103,7 @@ Deno.serve(async (req: Request) => {
     ["Specialties", specialties.join(", ") || "—"],
     ["Languages", languages.join(", ") || "—"],
     ["Years of experience", yearsExperience?.toString() ?? "—"],
+    ["Verification plan", plan ?? "—"],
     ["Applicant email", applicantEmail ?? "unknown"],
     ["Applicant user id", applicantId],
   ];

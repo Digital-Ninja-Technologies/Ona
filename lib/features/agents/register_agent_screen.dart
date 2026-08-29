@@ -23,7 +23,11 @@ List<String> _splitTags(String value) => value
 /// the details to the Ona team for review — it does not create a public
 /// listing itself, so nothing shows up on the agent page until approved.
 class RegisterAgentScreen extends ConsumerStatefulWidget {
-  const RegisterAgentScreen({super.key});
+  const RegisterAgentScreen({super.key, this.plan});
+
+  /// The verification plan chosen on [AgentConductScreen] — e.g.
+  /// "Standard — \$105/month" — included in the emailed application.
+  final String? plan;
 
   @override
   ConsumerState<RegisterAgentScreen> createState() =>
@@ -89,17 +93,9 @@ class _RegisterAgentScreenState extends ConsumerState<RegisterAgentScreen> {
             languages: _splitTags(_languagesController.text),
             yearsExperience: int.tryParse(_yearsController.text.trim()),
             imageUrl: imageUrl,
+            plan: widget.plan,
           );
-      if (mounted) {
-        context.pop();
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text(
-              "Application sent! We'll review it and reach out by email.",
-            ),
-          ),
-        );
-      }
+      if (mounted) await _showConfirmation();
     } catch (_) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -111,6 +107,31 @@ class _RegisterAgentScreenState extends ConsumerState<RegisterAgentScreen> {
     } finally {
       if (mounted) setState(() => _submitting = false);
     }
+  }
+
+  Future<void> _showConfirmation() {
+    return showDialog<void>(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => AlertDialog(
+        title: const Text('Application Submitted'),
+        content: Text(
+          "Thanks for applying to become an Ọ̀nà agent. We'll review your "
+          "details and follow up by email with the payment process and any "
+          "documents we need — usually within 2–3 business days.",
+          style: AppTheme.poppins(),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () {
+              Navigator.of(context).pop();
+              context.go('/tabs/profile');
+            },
+            child: const Text('Done'),
+          ),
+        ],
+      ),
+    );
   }
 
   @override
@@ -129,6 +150,39 @@ class _RegisterAgentScreenState extends ConsumerState<RegisterAgentScreen> {
                 "profile won't be public until then.",
                 style: AppTheme.poppins(color: AppColors.textSecondary),
               ),
+              if (widget.plan != null) ...[
+                const SizedBox(height: 14),
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 14,
+                    vertical: 10,
+                  ),
+                  decoration: BoxDecoration(
+                    color: AppColors.surface,
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: AppColors.border),
+                  ),
+                  child: Row(
+                    children: [
+                      const Icon(
+                        LucideIcons.badgeCheck,
+                        size: 16,
+                        color: AppColors.primary,
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          'Applying for: ${widget.plan}',
+                          style: AppTheme.poppins(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
               const SizedBox(height: 20),
               Center(
                 child: GestureDetector(

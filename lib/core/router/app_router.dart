@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../features/agents/agent_conduct_screen.dart';
 import '../../features/agents/agent_detail_screen.dart';
 import '../../features/agents/agents_screen.dart';
 import '../../features/agents/register_agent_screen.dart';
@@ -206,8 +207,13 @@ final appRouterProvider = Provider<GoRouter>((ref) {
             AgentDetailScreen(agentId: state.pathParameters['id']!),
       ),
       GoRoute(
+        path: '/agent/apply',
+        builder: (context, state) => const AgentConductScreen(),
+      ),
+      GoRoute(
         path: '/agent/register',
-        builder: (context, state) => const RegisterAgentScreen(),
+        builder: (context, state) =>
+            RegisterAgentScreen(plan: state.extra as String?),
       ),
       GoRoute(
         path: '/chat/:id',

@@ -182,7 +182,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                   : 'Register as an Agent',
               onTap: () => myAgentProfile != null
                   ? context.push('/travel-agent/${myAgentProfile.id}')
-                  : context.push('/agent/register'),
+                  : context.push('/agent/apply'),
             ),
             const Divider(),
             const SizedBox(height: 12),

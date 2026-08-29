@@ -62,6 +62,7 @@ class AgentsRepository {
     List<String> languages = const [],
     int? yearsExperience,
     String? imageUrl,
+    String? plan,
   }) async {
     final client = _ref.read(supabaseProvider);
     final user = client.auth.currentUser!;
@@ -74,6 +75,7 @@ class AgentsRepository {
         'languages': languages,
         'yearsExperience': yearsExperience,
         'imageUrl': imageUrl,
+        'plan': plan,
         'applicantEmail': user.email,
         'applicantId': user.id,
       },
