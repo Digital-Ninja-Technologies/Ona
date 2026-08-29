@@ -6,11 +6,13 @@ import 'package:lucide_icons_flutter/lucide_icons.dart';
 import '../../core/data/community_repository.dart';
 import '../../core/data/follow_repository.dart';
 import '../../core/data/messages_repository.dart';
+import '../../core/data/moderation_repository.dart';
 import '../../core/data/public_profiles_repository.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/widgets/count_stat.dart';
 import '../../core/widgets/error_view.dart';
+import '../../core/widgets/moderation_actions.dart';
 import '../../core/widgets/user_avatar.dart';
 import '../auth/auth_controller.dart';
 import '../community/widgets/post_card.dart';
@@ -40,7 +42,6 @@ class UserProfileScreen extends ConsumerWidget {
           .read(followRepositoryProvider)
           .setFollowing(userId, !currentlyFollowing);
       ref.invalidate(isFollowingProvider(userId));
-      ref.invalidate(isMutualFollowProvider(userId));
       ref.invalidate(userProfileProvider(userId));
     } catch (_) {
       if (context.mounted) {
@@ -81,7 +82,50 @@ class UserProfileScreen extends ConsumerWidget {
     final isMe = ref.watch(currentUserProvider)?.id == userId;
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Profile')),
+      appBar: AppBar(
+        title: const Text('Profile'),
+        actions: [
+          if (!isMe)
+            Consumer(
+              builder: (context, ref, _) {
+                final profile = ref
+                    .watch(userProfileProvider(userId))
+                    .valueOrNull;
+                final isBlocked =
+                    ref.watch(isBlockingProvider(userId)).valueOrNull ??
+                    false;
+                return PopupMenuButton<String>(
+                  onSelected: (value) {
+                    switch (value) {
+                      case 'block':
+                        confirmAndToggleBlock(
+                          context,
+                          ref,
+                          userId: userId,
+                          displayName: profile?.displayName ?? 'this user',
+                          currentlyBlocked: isBlocked,
+                        );
+                      case 'report':
+                        confirmAndReportUser(
+                          context,
+                          ref,
+                          userId: userId,
+                          displayName: profile?.displayName ?? 'this user',
+                        );
+                    }
+                  },
+                  itemBuilder: (context) => [
+                    PopupMenuItem(
+                      value: 'block',
+                      child: Text(isBlocked ? 'Unblock' : 'Block'),
+                    ),
+                    const PopupMenuItem(value: 'report', child: Text('Report')),
+                  ],
+                );
+              },
+            ),
+        ],
+      ),
       body: SafeArea(
         child: profileAsync.when(
           loading: () => const Center(child: CircularProgressIndicator()),
@@ -130,6 +174,31 @@ class UserProfileScreen extends ConsumerWidget {
                   const SizedBox(height: 16),
                   Consumer(
                     builder: (context, ref, _) {
+                      final isBlocked =
+                          ref.watch(isBlockingProvider(userId)).valueOrNull ??
+                          false;
+                      if (isBlocked) {
+                        return SizedBox(
+                          width: double.infinity,
+                          child: OutlinedButton(
+                            onPressed: () => confirmAndToggleBlock(
+                              context,
+                              ref,
+                              userId: userId,
+                              displayName: profile.displayName,
+                              currentlyBlocked: true,
+                            ),
+                            style: OutlinedButton.styleFrom(
+                              side: const BorderSide(color: AppColors.error),
+                            ),
+                            child: Text(
+                              'Blocked · Tap to unblock',
+                              style: AppTheme.poppins(color: AppColors.error),
+                            ),
+                          ),
+                        );
+                      }
+
                       final followingAsync = ref.watch(
                         isFollowingProvider(userId),
                       );
@@ -137,72 +206,59 @@ class UserProfileScreen extends ConsumerWidget {
                           .watch(followTogglingProvider)
                           .contains(userId);
                       final isFollowing = followingAsync.valueOrNull ?? false;
-                      return SizedBox(
-                        width: double.infinity,
-                        child: isFollowing
-                            ? OutlinedButton(
-                                onPressed: toggling
-                                    ? null
-                                    : () => _toggleFollow(
-                                        ref,
-                                        context,
-                                        true,
-                                      ),
-                                child: toggling
-                                    ? const SizedBox(
-                                        height: 18,
-                                        width: 18,
-                                        child: CircularProgressIndicator(
-                                          strokeWidth: 2,
-                                        ),
-                                      )
-                                    : const Text('Following'),
-                              )
-                            : ElevatedButton(
-                                onPressed: toggling
-                                    ? null
-                                    : () => _toggleFollow(
-                                        ref,
-                                        context,
-                                        false,
-                                      ),
-                                child: toggling
-                                    ? const SizedBox(
-                                        height: 18,
-                                        width: 18,
-                                        child: CircularProgressIndicator(
-                                          strokeWidth: 2,
-                                          color: Colors.white,
-                                        ),
-                                      )
-                                    : const Text('Follow'),
-                              ),
-                      );
-                    },
-                  ),
-                  const SizedBox(height: 12),
-                  Consumer(
-                    builder: (context, ref, _) {
-                      final canMessage =
-                          ref.watch(isMutualFollowProvider(userId)).valueOrNull ??
-                          false;
-                      if (!canMessage) {
-                        return Text(
-                          'Follow each other to start messaging.',
-                          textAlign: TextAlign.center,
-                          style: AppTheme.poppins(
-                            fontSize: 12,
-                            color: AppColors.textSecondary,
+                      return Column(
+                        children: [
+                          SizedBox(
+                            width: double.infinity,
+                            child: isFollowing
+                                ? OutlinedButton(
+                                    onPressed: toggling
+                                        ? null
+                                        : () => _toggleFollow(
+                                            ref,
+                                            context,
+                                            true,
+                                          ),
+                                    child: toggling
+                                        ? const SizedBox(
+                                            height: 18,
+                                            width: 18,
+                                            child: CircularProgressIndicator(
+                                              strokeWidth: 2,
+                                            ),
+                                          )
+                                        : const Text('Following'),
+                                  )
+                                : ElevatedButton(
+                                    onPressed: toggling
+                                        ? null
+                                        : () => _toggleFollow(
+                                            ref,
+                                            context,
+                                            false,
+                                          ),
+                                    child: toggling
+                                        ? const SizedBox(
+                                            height: 18,
+                                            width: 18,
+                                            child: CircularProgressIndicator(
+                                              strokeWidth: 2,
+                                              color: Colors.white,
+                                            ),
+                                          )
+                                        : const Text('Follow'),
+                                  ),
                           ),
-                        );
-                      }
-                      return SizedBox(
-                        width: double.infinity,
-                        child: OutlinedButton.icon(
-                          onPressed: () => _startMessage(ref, context),
-                          icon: const Icon(LucideIcons.messageCircle),
-                          label: const Text('Message'),
-                        ),
+                          const SizedBox(height: 12),
+                          SizedBox(
+                            width: double.infinity,
+                            child: OutlinedButton.icon(
+                              onPressed: () => _startMessage(ref, context),
+                              icon: const Icon(LucideIcons.messageCircle),
+                              label: const Text('Message'),
+                            ),
+                          ),
+                        ],
                       );
                     },
                   ),

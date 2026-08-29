@@ -7,10 +7,12 @@ import 'package:intl/intl.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 import '../../core/data/messages_repository.dart';
+import '../../core/data/moderation_repository.dart';
 import '../../core/models/chat_message.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/widgets/error_view.dart';
+import '../../core/widgets/moderation_actions.dart';
 import '../auth/auth_controller.dart';
 
 class ChatScreen extends ConsumerStatefulWidget {
@@ -35,6 +37,13 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
     _pollTimer = Timer.periodic(const Duration(seconds: 3), (_) {
       ref.invalidate(chatMessagesProvider(widget.conversationId));
     });
+    // Mark read on open — fire-and-forget, a failure here shouldn't block
+    // viewing the conversation.
+    ref
+        .read(messagesRepositoryProvider)
+        .markConversationRead(widget.conversationId)
+        .then((_) => ref.invalidate(conversationsProvider))
+        .catchError((_) {});
   }
 
   @override
@@ -89,11 +98,12 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
       chatMessagesProvider(widget.conversationId),
     );
 
+    final otherUserId = otherUserAsync.valueOrNull?.id;
+
     return Scaffold(
       appBar: AppBar(
         title: GestureDetector(
           onTap: () {
-            final otherUserId = otherUserAsync.valueOrNull?.id;
             if (otherUserId != null) context.push('/user/$otherUserId');
           },
           child: Text(
@@ -101,6 +111,30 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
             style: AppTheme.fredoka(fontSize: 18),
           ),
         ),
+        actions: [
+          if (otherUserId != null)
+            IconButton(
+              icon: const Icon(LucideIcons.moreVertical),
+              onPressed: () async {
+                final isBlocked = await ref.read(
+                  isBlockingProvider(otherUserId).future,
+                );
+                if (!context.mounted) return;
+                await showConversationActionsSheet(
+                  context,
+                  ref,
+                  conversationId: widget.conversationId,
+                  otherUserId: otherUserId,
+                  otherUserDisplayName:
+                      otherUserAsync.valueOrNull?.displayName ?? 'this user',
+                  isBlocked: isBlocked,
+                  onConversationDeleted: () {
+                    if (context.mounted) context.pop();
+                  },
+                );
+              },
+            ),
+        ],
       ),
       body: SafeArea(
         child: Column(
