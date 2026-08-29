@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../features/agents/agent_detail_screen.dart';
 import '../../features/agents/agents_screen.dart';
+import '../../features/agents/register_agent_screen.dart';
 import '../../features/ai_assistant/ai_assistant_screen.dart';
 import '../../features/auth/auth_controller.dart';
 import '../../features/auth/forgot_password_screen.dart';
@@ -203,6 +204,10 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         path: '/travel-agent/:id',
         builder: (context, state) =>
             AgentDetailScreen(agentId: state.pathParameters['id']!),
+      ),
+      GoRoute(
+        path: '/agent/register',
+        builder: (context, state) => const RegisterAgentRoute(),
       ),
       GoRoute(
         path: '/chat/:id',

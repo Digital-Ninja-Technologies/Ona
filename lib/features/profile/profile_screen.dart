@@ -7,6 +7,7 @@ import 'package:go_router/go_router.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 
+import '../../core/data/agents_repository.dart';
 import '../../core/data/profile_repository.dart';
 import '../../core/data/storage_repository.dart';
 import '../../core/theme/app_colors.dart';
@@ -63,6 +64,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
     final initial = email.isNotEmpty ? email[0].toUpperCase() : '?';
     final profileAsync = ref.watch(myProfileProvider);
     final profileImage = profileAsync.valueOrNull?.profileImage;
+    final isAgent = ref.watch(myAgentProfileProvider).valueOrNull != null;
 
     return Scaffold(
       appBar: AppBar(title: const Text('Profile')),
@@ -172,6 +174,11 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
               icon: LucideIcons.settings,
               label: 'Settings',
               onTap: () => context.push('/settings'),
+            ),
+            _ProfileMenuItem(
+              icon: LucideIcons.briefcase,
+              label: isAgent ? 'My Agent Profile' : 'Register as an Agent',
+              onTap: () => context.push('/agent/register'),
             ),
             const Divider(),
             const SizedBox(height: 12),

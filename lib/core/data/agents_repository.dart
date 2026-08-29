@@ -36,6 +36,48 @@ class AgentsRepository {
         .single();
     return TravelAgent.fromJson(response);
   }
+
+  /// The signed-in user's own agent listing, if they've registered as one.
+  Future<TravelAgent?> fetchMyAgentProfile() async {
+    final client = _ref.read(supabaseProvider);
+    final userId = client.auth.currentUser?.id;
+    if (userId == null) return null;
+    final response = await client
+        .from('travel_agents')
+        .select()
+        .eq('user_id', userId)
+        .maybeSingle();
+    if (response == null) return null;
+    return TravelAgent.fromJson(response);
+  }
+
+  /// Creates the caller's agent listing, or updates it if they've already
+  /// registered — `travel_agents.user_id` is unique per account.
+  Future<TravelAgent> registerAsAgent({
+    required String businessName,
+    String? bio,
+    List<String> specialties = const [],
+    List<String> languages = const [],
+    int? yearsExperience,
+    String? imageUrl,
+  }) async {
+    final client = _ref.read(supabaseProvider);
+    final userId = client.auth.currentUser!.id;
+    final response = await client
+        .from('travel_agents')
+        .upsert({
+          'user_id': userId,
+          'business_name': businessName,
+          'bio': bio,
+          'specialties': specialties,
+          'languages': languages,
+          'years_experience': yearsExperience,
+          'image_url': imageUrl,
+        }, onConflict: 'user_id')
+        .select()
+        .single();
+    return TravelAgent.fromJson(response);
+  }
 }
 
 final agentsRepositoryProvider = Provider<AgentsRepository>((ref) {
@@ -58,4 +100,11 @@ final agentDetailProvider = FutureProvider.family<TravelAgent, String>((
   id,
 ) {
   return ref.watch(agentsRepositoryProvider).fetchAgent(id);
+});
+
+final myAgentProfileProvider = FutureProvider.autoDispose<TravelAgent?>((
+  ref,
+) {
+  ref.watch(currentUserProvider);
+  return ref.watch(agentsRepositoryProvider).fetchMyAgentProfile();
 });
