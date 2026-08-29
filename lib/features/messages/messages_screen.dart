@@ -29,35 +29,35 @@ class MessagesScreen extends ConsumerWidget {
 
     return Scaffold(
       appBar: AppBar(
-        title: PopupMenuButton<MessageFilter>(
-          initialValue: filter,
-          onSelected: (value) =>
-              ref.read(messageFilterProvider.notifier).state = value,
-          itemBuilder: (context) => MessageFilter.values
-              .map(
-                (value) => PopupMenuItem(
-                  value: value,
-                  child: Text(_filterLabels[value]!),
-                ),
-              )
-              .toList(),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Text('Messages', style: AppTheme.fredoka(fontSize: 18)),
-              const SizedBox(width: 4),
-              const Icon(LucideIcons.chevronDown, size: 18),
-              const SizedBox(width: 4),
-              Text(
-                '· ${_filterLabels[filter]}',
-                style: AppTheme.poppins(
-                  fontSize: 13,
-                  color: AppColors.textSecondary,
-                ),
-              ),
-            ],
+        title: Text('Messages', style: AppTheme.fredoka(fontSize: 18)),
+        actions: [
+          PopupMenuButton<MessageFilter>(
+            icon: const Icon(LucideIcons.listFilter),
+            tooltip: 'Filter: ${_filterLabels[filter]}',
+            initialValue: filter,
+            onSelected: (value) =>
+                ref.read(messageFilterProvider.notifier).state = value,
+            itemBuilder: (context) => MessageFilter.values
+                .map(
+                  (value) => PopupMenuItem(
+                    value: value,
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text(_filterLabels[value]!),
+                        if (value == filter)
+                          const Icon(
+                            LucideIcons.check,
+                            size: 16,
+                            color: AppColors.primary,
+                          ),
+                      ],
+                    ),
+                  ),
+                )
+                .toList(),
           ),
-        ),
+        ],
       ),
       body: SafeArea(
         child: RefreshIndicator(
