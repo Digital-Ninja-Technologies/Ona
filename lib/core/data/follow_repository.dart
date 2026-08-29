@@ -22,6 +22,29 @@ class FollowRepository {
     return row != null;
   }
 
+  Future<bool> isFollowedBy(String userId) async {
+    final me = _userId;
+    if (me == null) return false;
+    final client = _ref.read(supabaseProvider);
+    final row = await client
+        .from('follows')
+        .select('follower_id')
+        .eq('follower_id', userId)
+        .eq('followed_id', me)
+        .maybeSingle();
+    return row != null;
+  }
+
+  /// Whether the signed-in user and [userId] follow each other —
+  /// messaging a regular user (not a travel agent) requires this.
+  Future<bool> isMutualFollow(String userId) async {
+    final results = await Future.wait([
+      isFollowing(userId),
+      isFollowedBy(userId),
+    ]);
+    return results[0] && results[1];
+  }
+
   Future<void> setFollowing(String userId, bool following) async {
     final client = _ref.read(supabaseProvider);
     final me = _userId;
@@ -53,6 +76,14 @@ final isFollowingProvider = FutureProvider.autoDispose.family<bool, String>((
 ) {
   return ref.watch(followRepositoryProvider).isFollowing(userId);
 });
+
+/// Whether the signed-in user and [userId] follow each other. Re-fetch by
+/// invalidating this family member after a follow/unfollow.
+final isMutualFollowProvider = FutureProvider.autoDispose.family<bool, String>(
+  (ref, userId) {
+    return ref.watch(followRepositoryProvider).isMutualFollow(userId);
+  },
+);
 
 /// User ids with a follow toggle currently in flight — same in-flight guard
 /// pattern as likeTogglingProvider/repostTogglingProvider.

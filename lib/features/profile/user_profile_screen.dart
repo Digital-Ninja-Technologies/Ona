@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 import '../../core/data/community_repository.dart';
 import '../../core/data/follow_repository.dart';
+import '../../core/data/messages_repository.dart';
 import '../../core/data/public_profiles_repository.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_theme.dart';
@@ -38,6 +40,7 @@ class UserProfileScreen extends ConsumerWidget {
           .read(followRepositoryProvider)
           .setFollowing(userId, !currentlyFollowing);
       ref.invalidate(isFollowingProvider(userId));
+      ref.invalidate(isMutualFollowProvider(userId));
       ref.invalidate(userProfileProvider(userId));
     } catch (_) {
       if (context.mounted) {
@@ -53,6 +56,21 @@ class UserProfileScreen extends ConsumerWidget {
       }
     } finally {
       togglingNotifier.state = {...togglingNotifier.state}..remove(userId);
+    }
+  }
+
+  Future<void> _startMessage(WidgetRef ref, BuildContext context) async {
+    try {
+      final conversationId = await ref
+          .read(messagesRepositoryProvider)
+          .getOrCreateConversation(userId);
+      if (context.mounted) context.push('/chat/$conversationId');
+    } catch (_) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Could not start a conversation.')),
+        );
+      }
     }
   }
 
@@ -159,6 +177,32 @@ class UserProfileScreen extends ConsumerWidget {
                                       )
                                     : const Text('Follow'),
                               ),
+                      );
+                    },
+                  ),
+                  const SizedBox(height: 12),
+                  Consumer(
+                    builder: (context, ref, _) {
+                      final canMessage =
+                          ref.watch(isMutualFollowProvider(userId)).valueOrNull ??
+                          false;
+                      if (!canMessage) {
+                        return Text(
+                          'Follow each other to start messaging.',
+                          textAlign: TextAlign.center,
+                          style: AppTheme.poppins(
+                            fontSize: 12,
+                            color: AppColors.textSecondary,
+                          ),
+                        );
+                      }
+                      return SizedBox(
+                        width: double.infinity,
+                        child: OutlinedButton.icon(
+                          onPressed: () => _startMessage(ref, context),
+                          icon: const Icon(LucideIcons.messageCircle),
+                          label: const Text('Message'),
+                        ),
                       );
                     },
                   ),
