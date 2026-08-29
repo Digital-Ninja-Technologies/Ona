@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../core/data/profile_repository.dart';
 import '../../core/theme/app_colors.dart';
+import '../../core/theme/app_theme.dart';
 
 const _tabRoutes = [
   '/tabs/home',
@@ -34,12 +35,21 @@ const _tabIconsFilled = [
   Icons.groups,
 ];
 
+const _tabLabels = [
+  'Explore',
+  'Agents',
+  'Itineraries',
+  'Messages',
+  'Community',
+  'Profile',
+];
+
 /// Bottom-tab shell matching the original app's six visible tabs
 /// (Search is reachable from Home but isn't a bottom-tab destination).
 ///
-/// Instagram-style: icon-only (no labels), outline icons switch to filled
-/// when active, and the last tab is the signed-in user's own profile photo
-/// rather than a generic icon.
+/// Instagram-style: outline icons switch to filled when active, and the
+/// last tab is the signed-in user's own profile photo rather than a
+/// generic icon.
 class TabShell extends ConsumerWidget {
   const TabShell({super.key, required this.child, required this.location});
 
@@ -66,7 +76,7 @@ class TabShell extends ConsumerWidget {
         child: SafeArea(
           top: false,
           child: SizedBox(
-            height: 52,
+            height: 62,
             child: Row(
               children: [
                 for (var i = 0; i < _tabIconsOutlined.length; i++)
@@ -75,6 +85,7 @@ class TabShell extends ConsumerWidget {
                       icon: i == currentIndex
                           ? _tabIconsFilled[i]
                           : _tabIconsOutlined[i],
+                      label: _tabLabels[i],
                       selected: i == currentIndex,
                       onTap: () => context.go(_tabRoutes[i]),
                     ),
@@ -82,6 +93,7 @@ class TabShell extends ConsumerWidget {
                 Expanded(
                   child: _ProfileTabButton(
                     imageUrl: profileImage,
+                    label: _tabLabels[5],
                     selected: currentIndex == 5,
                     onTap: () => context.go(_tabRoutes[5]),
                   ),
@@ -98,25 +110,38 @@ class TabShell extends ConsumerWidget {
 class _TabIconButton extends StatelessWidget {
   const _TabIconButton({
     required this.icon,
+    required this.label,
     required this.selected,
     required this.onTap,
   });
 
   final IconData icon;
+  final String label;
   final bool selected;
   final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
+    final color = selected ? AppColors.text : AppColors.textSecondary;
     return InkResponse(
       onTap: onTap,
       containedInkWell: true,
       highlightShape: BoxShape.rectangle,
       child: Center(
-        child: Icon(
-          icon,
-          size: 26,
-          color: selected ? AppColors.text : AppColors.textSecondary,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(icon, size: 24, color: color),
+            const SizedBox(height: 3),
+            Text(
+              label,
+              style: AppTheme.poppins(
+                fontSize: 10,
+                fontWeight: selected ? FontWeight.w600 : FontWeight.w500,
+                color: color,
+              ),
+            ),
+          ],
         ),
       ),
     );
@@ -130,56 +155,73 @@ class _TabIconButton extends StatelessWidget {
 class _ProfileTabButton extends StatelessWidget {
   const _ProfileTabButton({
     required this.imageUrl,
+    required this.label,
     required this.selected,
     required this.onTap,
   });
 
   final String? imageUrl;
+  final String label;
   final bool selected;
   final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
+    final color = selected ? AppColors.text : AppColors.textSecondary;
     return InkResponse(
       onTap: onTap,
       containedInkWell: true,
       highlightShape: BoxShape.rectangle,
       child: Center(
-        child: imageUrl == null
-            ? Icon(
-                selected ? Icons.account_circle : Icons.account_circle_outlined,
-                size: 26,
-                color: selected ? AppColors.text : AppColors.textSecondary,
-              )
-            : Container(
-                width: 26,
-                height: 26,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  border: Border.all(
-                    color: selected ? AppColors.text : Colors.transparent,
-                    width: 1.5,
-                  ),
-                ),
-                child: Padding(
-                  padding: const EdgeInsets.all(1.5),
-                  child: ClipOval(
-                    child: CachedNetworkImage(
-                      imageUrl: imageUrl!,
-                      fit: BoxFit.cover,
-                      errorWidget: (context, url, error) => Icon(
-                        selected
-                            ? Icons.account_circle
-                            : Icons.account_circle_outlined,
-                        size: 22,
-                        color: selected
-                            ? AppColors.text
-                            : AppColors.textSecondary,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            imageUrl == null
+                ? Icon(
+                    selected
+                        ? Icons.account_circle
+                        : Icons.account_circle_outlined,
+                    size: 24,
+                    color: color,
+                  )
+                : Container(
+                    width: 24,
+                    height: 24,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      border: Border.all(
+                        color: selected ? AppColors.text : Colors.transparent,
+                        width: 1.5,
+                      ),
+                    ),
+                    child: Padding(
+                      padding: const EdgeInsets.all(1.5),
+                      child: ClipOval(
+                        child: CachedNetworkImage(
+                          imageUrl: imageUrl!,
+                          fit: BoxFit.cover,
+                          errorWidget: (context, url, error) => Icon(
+                            selected
+                                ? Icons.account_circle
+                                : Icons.account_circle_outlined,
+                            size: 20,
+                            color: color,
+                          ),
+                        ),
                       ),
                     ),
                   ),
-                ),
+            const SizedBox(height: 3),
+            Text(
+              label,
+              style: AppTheme.poppins(
+                fontSize: 10,
+                fontWeight: selected ? FontWeight.w600 : FontWeight.w500,
+                color: color,
               ),
+            ),
+          ],
+        ),
       ),
     );
   }
