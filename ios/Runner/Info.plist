@@ -22,16 +22,6 @@
 	<string>$(FLUTTER_BUILD_NAME)</string>
 	<key>CFBundleSignature</key>
 	<string>????</string>
-	<key>CFBundleVersion</key>
-	<string>$(FLUTTER_BUILD_NUMBER)</string>
-	<key>LSRequiresIPhoneOS</key>
-	<true/>
-	<key>NSPhotoLibraryUsageDescription</key>
-	<string>Ona uses your photo library to attach photos to reviews and community posts.</string>
-	<key>NSCameraUsageDescription</key>
-	<string>Ona uses your camera to take photos for reviews and community posts.</string>
-	<key>NSLocationWhenInUseUsageDescription</key>
-	<string>Ona uses your location to suggest nearby places worth visiting.</string>
 	<key>CFBundleURLTypes</key>
 	<array>
 		<dict>
@@ -42,7 +32,23 @@
 				<string>ona</string>
 			</array>
 		</dict>
+		<dict>
+			<key>CFBundleURLSchemes</key>
+			<array>
+				<string>com.googleusercontent.apps.125510522689-rfu486meb85rufhrvchkq57mvtmiv67q</string>
+			</array>
+		</dict>
 	</array>
+	<key>CFBundleVersion</key>
+	<string>$(FLUTTER_BUILD_NUMBER)</string>
+	<key>LSRequiresIPhoneOS</key>
+	<true/>
+	<key>NSCameraUsageDescription</key>
+	<string>Ona uses your camera to take photos for reviews and community posts.</string>
+	<key>NSLocationWhenInUseUsageDescription</key>
+	<string>Ona uses your location to suggest nearby places worth visiting.</string>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>Ona uses your photo library to attach photos to reviews and community posts.</string>
 	<key>UIApplicationSceneManifest</key>
 	<dict>
 		<key>UIApplicationSupportsMultipleScenes</key>

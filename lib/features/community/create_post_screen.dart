@@ -8,9 +8,17 @@ import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 import '../../core/data/community_repository.dart';
 import '../../core/data/storage_repository.dart';
+import '../../core/models/community_post.dart';
+import '../../core/theme/app_colors.dart';
+import '../../core/theme/app_theme.dart';
+import '../../core/widgets/user_avatar.dart';
 
 class CreatePostScreen extends ConsumerStatefulWidget {
-  const CreatePostScreen({super.key});
+  const CreatePostScreen({super.key, this.quotedPost});
+
+  /// Non-null when composing a quote-repost — the original post is shown
+  /// embedded above the compose field, and the new post is linked to it.
+  final CommunityPost? quotedPost;
 
   @override
   ConsumerState<CreatePostScreen> createState() => _CreatePostScreenState();
@@ -42,9 +50,16 @@ class _CreatePostScreenState extends ConsumerState<CreatePostScreen> {
   }
 
   Future<void> _submit() async {
+    final isQuote = widget.quotedPost != null;
     if (_contentController.text.trim().isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Write something to share first.')),
+        SnackBar(
+          content: Text(
+            isQuote
+                ? 'Add a comment to your quote.'
+                : 'Write something to share first.',
+          ),
+        ),
       );
       return;
     }
@@ -65,6 +80,7 @@ class _CreatePostScreenState extends ConsumerState<CreatePostScreen> {
             type: _type,
             content: _contentController.text.trim(),
             imageUrl: imageUrl,
+            quotedPostId: widget.quotedPost?.id,
           );
       if (mounted) context.pop(true);
     } catch (_) {
@@ -80,8 +96,9 @@ class _CreatePostScreenState extends ConsumerState<CreatePostScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final quotedPost = widget.quotedPost;
     return Scaffold(
-      appBar: AppBar(title: const Text('New Post')),
+      appBar: AppBar(title: Text(quotedPost == null ? 'New Post' : 'Quote')),
       body: SafeArea(
         child: ListView(
           padding: const EdgeInsets.all(20),
@@ -101,11 +118,18 @@ class _CreatePostScreenState extends ConsumerState<CreatePostScreen> {
             TextField(
               controller: _contentController,
               maxLines: 6,
-              decoration: const InputDecoration(
-                hintText: 'Share a story, tip, or ask a question...',
+              autofocus: quotedPost != null,
+              decoration: InputDecoration(
+                hintText: quotedPost == null
+                    ? 'Share a story, tip, or ask a question...'
+                    : 'Add a comment...',
               ),
             ),
             const SizedBox(height: 16),
+            if (quotedPost != null) ...[
+              _QuotedPostPreview(post: quotedPost),
+              const SizedBox(height: 16),
+            ],
             if (_pickedImage != null)
               ClipRRect(
                 borderRadius: BorderRadius.circular(12),
@@ -134,10 +158,55 @@ class _CreatePostScreenState extends ConsumerState<CreatePostScreen> {
                         color: Colors.white,
                       ),
                     )
-                  : const Text('Post'),
+                  : Text(quotedPost == null ? 'Post' : 'Post Quote'),
             ),
           ],
         ),
+      ),
+    );
+  }
+}
+
+/// A compact, read-only preview of the post being quoted — shown above the
+/// compose field, in the same style [PostCard] uses to embed it once posted.
+class _QuotedPostPreview extends StatelessWidget {
+  const _QuotedPostPreview({required this.post});
+
+  final CommunityPost post;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        border: Border.all(color: AppColors.border),
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              UserAvatar(
+                name: post.author.displayName,
+                imageUrl: post.author.profileImage,
+                radius: 12,
+              ),
+              const SizedBox(width: 8),
+              Text(
+                post.author.handle,
+                style: AppTheme.fredoka(fontSize: 13),
+              ),
+            ],
+          ),
+          const SizedBox(height: 6),
+          Text(
+            post.content,
+            maxLines: 3,
+            overflow: TextOverflow.ellipsis,
+            style: AppTheme.poppins(fontSize: 13),
+          ),
+        ],
       ),
     );
   }

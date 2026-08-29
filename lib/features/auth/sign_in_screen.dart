@@ -7,6 +7,7 @@ import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_theme.dart';
 import 'auth_controller.dart';
 import 'widgets/auth_background.dart';
+import 'widgets/social_sign_in_buttons.dart';
 
 class SignInScreen extends ConsumerStatefulWidget {
   const SignInScreen({super.key});
@@ -157,6 +158,8 @@ class _SignInScreenState extends ConsumerState<SignInScreen> {
                         : const Text('Sign In'),
                   ),
                 ),
+                const SizedBox(height: 24),
+                const SocialSignInButtons(),
                 const SizedBox(height: 16),
                 Center(
                   child: TextButton(

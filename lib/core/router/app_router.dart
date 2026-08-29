@@ -27,23 +27,31 @@ import '../../features/home/home_screen.dart';
 import '../../features/itineraries/itineraries_screen.dart';
 import '../../features/itineraries/itinerary_create_screen.dart';
 import '../../features/itineraries/itinerary_detail_screen.dart';
+import '../../features/itineraries/itinerary_preview_screen.dart';
 import '../../features/messages/chat_screen.dart';
 import '../../features/messages/messages_screen.dart';
+import '../../features/notifications/notifications_screen.dart';
 import '../../features/onboarding/interests_screen.dart';
+import '../../features/onboarding/username_screen.dart';
 import '../../features/onboarding/welcome_screen.dart';
 import '../../features/place/place_detail_screen.dart';
 import '../../features/profile/profile_screen.dart';
+import '../../features/profile/settings_screen.dart';
+import '../../features/profile/user_profile_screen.dart';
 import '../../features/reviews/reviews_screen.dart';
 import '../../features/search/search_screen.dart';
 import '../../features/shell/tab_shell.dart';
 import '../../features/splash/splash_screen.dart';
 import '../../features/wishlist/wishlist_screen.dart';
 import '../data/reviews_repository.dart';
+import '../models/community_post.dart';
+import '../models/itinerary.dart';
 import '../models/place_suggestion.dart';
 
 final appRouterProvider = Provider<GoRouter>((ref) {
   final isSignedIn = ref.watch(isSignedInProvider);
   final isPasswordRecovery = ref.watch(isPasswordRecoveryProvider);
+  final needsUsername = ref.watch(needsUsernameProvider);
 
   return GoRouter(
     initialLocation: '/splash',
@@ -58,6 +66,16 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       if (isPasswordRecovery &&
           state.matchedLocation != '/auth/reset-password') {
         return '/auth/reset-password';
+      }
+      // Fires for every sign-in method (email, Google, Apple) and for
+      // pre-existing accounts from before usernames existed — /interests is
+      // exempt so a fresh email signup still runs interests -> username in
+      // order, instead of this cutting the chain short.
+      if (isSignedIn &&
+          needsUsername &&
+          state.matchedLocation != '/onboarding/username' &&
+          state.matchedLocation != '/onboarding/interests') {
+        return '/onboarding/username';
       }
       if (state.matchedLocation == '/') {
         return isSignedIn ? '/tabs/home' : '/onboarding/welcome';
@@ -80,6 +98,10 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: '/onboarding/interests',
         builder: (context, state) => const InterestsScreen(),
+      ),
+      GoRoute(
+        path: '/onboarding/username',
+        builder: (context, state) => const UsernameScreen(),
       ),
       GoRoute(
         path: '/auth/signin',
@@ -137,6 +159,19 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         builder: (context, state) => const WishlistScreen(),
       ),
       GoRoute(
+        path: '/settings',
+        builder: (context, state) => const SettingsScreen(),
+      ),
+      GoRoute(
+        path: '/user/:id',
+        builder: (context, state) =>
+            UserProfileScreen(userId: state.pathParameters['id']!),
+      ),
+      GoRoute(
+        path: '/notifications',
+        builder: (context, state) => const NotificationsScreen(),
+      ),
+      GoRoute(
         path: '/place-detail',
         redirect: (context, state) {
           if (state.extra is! PlaceSuggestion) return '/tabs/home';
@@ -176,7 +211,12 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       ),
       GoRoute(
         path: '/community/create',
-        builder: (context, state) => const CreatePostScreen(),
+        builder: (context, state) {
+          final args = state.extra;
+          return CreatePostScreen(
+            quotedPost: args is CommunityPost ? args : null,
+          );
+        },
       ),
       GoRoute(
         path: '/community/:id/comments',
@@ -186,6 +226,29 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: '/itinerary-create',
         builder: (context, state) => const ItineraryCreateScreen(),
+      ),
+      GoRoute(
+        path: '/itinerary-preview',
+        redirect: (context, state) {
+          final args = state.extra;
+          if (args is! Map ||
+              args['draft'] is! ItineraryDraft ||
+              args['destinationName'] is! String ||
+              args['durationDays'] is! int ||
+              args['budget'] is! String) {
+            return '/tabs/itineraries';
+          }
+          return null;
+        },
+        builder: (context, state) {
+          final args = state.extra as Map;
+          return ItineraryPreviewScreen(
+            draft: args['draft'] as ItineraryDraft,
+            destinationName: args['destinationName'] as String,
+            durationDays: args['durationDays'] as int,
+            budget: args['budget'] as String,
+          );
+        },
       ),
       GoRoute(
         path: '/itinerary/:id',

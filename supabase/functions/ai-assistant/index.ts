@@ -87,6 +87,25 @@ const PLACES_SYSTEM_PROMPT =
   "phone number or URL. If the location isn't a real, identifiable " +
   "place, respond with an empty array: [].";
 
+// Used instead of BASE_SYSTEM_PROMPT when the client asks to resolve one
+// specific named place (singlePlace: true) — e.g. linking an itinerary
+// activity like "Visit the Louvre Museum" to a full place detail view.
+const SINGLE_PLACE_SYSTEM_PROMPT =
+  "You are a travel expert. The user will name one specific place, often " +
+  "as part of a longer activity description. Identify that place and " +
+  'respond with ONLY a valid JSON object (no markdown, no code fences, no ' +
+  'other text) shaped {"name": string, "description": string, "address": ' +
+  'string, "phone": string | null, "website": string | null}, where name ' +
+  "is the place's proper name, description is one short, appealing " +
+  "sentence about it, and address is your best real-world street address " +
+  "or locality — never leave it blank, give your best estimate even if " +
+  "approximate. For phone and website, use the provided web search " +
+  "results if they give a real contact number or official site for this " +
+  "specific place; otherwise use null for that field — never invent a " +
+  "phone number or URL. If you can't identify a real, specific place in " +
+  'the input, respond with {"name": "", "description": "", "address": "", ' +
+  '"phone": null, "website": null}.';
+
 interface HistoryMessage {
   role: string;
   content: string;
@@ -285,11 +304,17 @@ function buildSystemInstruction(
   );
 }
 
-/** True if a failed Gemini response looks like a free-tier quota hit. */
-function isRateLimited(status: number, errorText: string): boolean {
+/**
+ * True if a failed Gemini response looks like something a retry to a
+ * different provider would fix: a free-tier quota hit, or Gemini's own
+ * infrastructure being overloaded/unavailable (5xx) — as opposed to e.g. a
+ * 400 from a malformed request, which Groq would fail identically.
+ */
+function shouldFallBackToGroq(status: number, errorText: string): boolean {
   return (
     status === 429 ||
-    /too_many_requests|RESOURCE_EXHAUSTED|quota/i.test(errorText)
+    status >= 500 ||
+    /too_many_requests|RESOURCE_EXHAUSTED|quota|UNAVAILABLE/i.test(errorText)
   );
 }
 
@@ -375,22 +400,29 @@ Deno.serve(async (req: Request) => {
   }
 
   try {
-    const { message, previousInteractionId, history, structuredPlaces } =
-      await req.json();
+    const {
+      message,
+      previousInteractionId,
+      history,
+      structuredPlaces,
+      singlePlace,
+    } = await req.json();
     if (typeof message !== "string" || message.trim().length === 0) {
       return jsonResponse({ error: "message is required" }, 400);
     }
 
-    // Structured place lists always search (freshness matters more than
+    // Structured place lookups always search (freshness matters more than
     // quota here, and it's a deliberate one-off action, not chat spam);
     // regular chat only searches when the message looks time-sensitive.
-    const searchResults = structuredPlaces || needsSearch(message)
+    const searchResults = structuredPlaces || singlePlace || needsSearch(message)
       ? await braveSearch(message)
       : [];
-    const systemInstruction = buildSystemInstruction(
-      structuredPlaces ? PLACES_SYSTEM_PROMPT : BASE_SYSTEM_PROMPT,
-      searchResults,
-    );
+    const basePrompt = structuredPlaces
+      ? PLACES_SYSTEM_PROMPT
+      : singlePlace
+        ? SINGLE_PLACE_SYSTEM_PROMPT
+        : BASE_SYSTEM_PROMPT;
+    const systemInstruction = buildSystemInstruction(basePrompt, searchResults);
 
     // Cap how long we wait on Gemini. Without this, a stalled response from
     // Google hangs the whole function until Supabase's platform-level
@@ -458,7 +490,7 @@ Deno.serve(async (req: Request) => {
         geminiNetworkError ?? (await geminiResponse!.text());
       const shouldFallBack =
         geminiNetworkError !== null ||
-        isRateLimited(geminiResponse!.status, errorText);
+        shouldFallBackToGroq(geminiResponse!.status, errorText);
       if (!GROQ_API_KEY || !shouldFallBack) {
         return jsonResponse({ error: `Gemini API error: ${errorText}` }, 502);
       }
@@ -483,7 +515,7 @@ Deno.serve(async (req: Request) => {
       }
     }
 
-    if (!structuredPlaces && searchResults.length > 0) {
+    if (!structuredPlaces && !singlePlace && searchResults.length > 0) {
       const sources = searchResults
         .map((r) => `- ${r.title}: ${r.url}`)
         .join("\n");
@@ -524,6 +556,36 @@ Deno.serve(async (req: Request) => {
             }),
           );
           reply = JSON.stringify(withImages);
+        }
+      } catch {
+        // Leave reply as the raw (imageless) JSON text.
+      }
+    } else if (singlePlace) {
+      // Same enrichment as the structuredPlaces branch above, but for the
+      // one object this mode returns instead of an array.
+      try {
+        let raw = reply.trim();
+        if (raw.startsWith("```")) {
+          raw = raw
+            .replace(/^```[a-zA-Z]*\n?/, "")
+            .replace(/```$/, "")
+            .trim();
+        }
+        const place = JSON.parse(raw);
+        if (typeof place?.name === "string" && place.name.length > 0) {
+          const address =
+            typeof place?.address === "string" ? place.address : null;
+          const [imageUrl, lookup] = await Promise.all([
+            braveImageSearch(place.name),
+            bravePlaceLookup(place.name, address),
+          ]);
+          reply = JSON.stringify({
+            ...place,
+            imageUrl,
+            phone: place.phone ?? lookup.phone,
+            website: place.website ?? lookup.website,
+            reviews: lookup.reviews,
+          });
         }
       } catch {
         // Leave reply as the raw (imageless) JSON text.

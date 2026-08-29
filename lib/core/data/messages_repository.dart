@@ -78,6 +78,40 @@ class MessagesRepository {
     return conversations;
   }
 
+  /// Searches the signed-in user's conversations by the other person's name
+  /// or by message content anywhere in the conversation's history (not just
+  /// the last message) — used by the unified search screen. Empty for a
+  /// blank [query] rather than returning everything.
+  Future<List<Conversation>> searchConversations(String query) async {
+    final q = query.trim();
+    if (q.isEmpty) return [];
+
+    final conversations = await fetchConversations();
+    final lowerQuery = q.toLowerCase();
+    final nameMatches = conversations
+        .where((c) => c.otherUser.displayName.toLowerCase().contains(lowerQuery))
+        .toList();
+
+    final remaining = conversations
+        .where((c) => !nameMatches.any((match) => match.id == c.id))
+        .toList();
+    if (remaining.isEmpty) return nameMatches;
+
+    final client = _ref.read(supabaseProvider);
+    final remainingIds = remaining.map((c) => c.id).toList();
+    final messageRows = await client
+        .from('messages')
+        .select('conversation_id')
+        .inFilter('conversation_id', remainingIds)
+        .ilike('content', '%$q%');
+    final matchingIds = List<Map<String, dynamic>>.from(messageRows as List)
+        .map((row) => row['conversation_id'] as String)
+        .toSet();
+
+    final contentMatches = remaining.where((c) => matchingIds.contains(c.id));
+    return [...nameMatches, ...contentMatches];
+  }
+
   Future<String> getOrCreateConversation(String otherUserId) async {
     final client = _ref.read(supabaseProvider);
     final me = _userId;

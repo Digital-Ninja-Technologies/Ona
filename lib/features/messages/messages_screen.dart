@@ -8,6 +8,7 @@ import '../../core/models/conversation.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/widgets/error_view.dart';
+import '../../core/widgets/user_avatar.dart';
 
 class MessagesScreen extends ConsumerWidget {
   const MessagesScreen({super.key});
@@ -98,13 +99,10 @@ class _ConversationTile extends StatelessWidget {
   Widget build(BuildContext context) {
     return ListTile(
       contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
-      leading: CircleAvatar(
+      leading: UserAvatar(
+        name: conversation.otherUser.displayName,
+        imageUrl: conversation.otherUser.profileImage,
         radius: 26,
-        backgroundColor: AppColors.primary,
-        child: Text(
-          conversation.otherUser.displayName[0].toUpperCase(),
-          style: AppTheme.fredoka(color: Colors.white, fontSize: 18),
-        ),
       ),
       title: Text(
         conversation.otherUser.displayName,

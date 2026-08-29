@@ -5,17 +5,21 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../core/data/ai_assistant_repository.dart';
 import '../../core/data/destinations_repository.dart';
 import '../../core/data/location_repository.dart';
 import '../../core/data/nearby_destinations_cache.dart';
+import '../../core/data/notifications_repository.dart';
 import '../../core/models/place_suggestion.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/widgets/destination_card.dart';
 import '../../core/widgets/error_view.dart';
 import '../../core/widgets/image_loading_placeholder.dart';
+import '../../core/widgets/no_image_placeholder.dart';
+import '../auth/auth_controller.dart';
 
 class HomeScreen extends ConsumerStatefulWidget {
   const HomeScreen({super.key});
@@ -32,6 +36,13 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   // suggestions for that location instead.
   String? _customLocation;
   bool _resolvingLocation = false;
+
+  // Extra AI-generated places for _customLocation, appended after the
+  // initial placesForLocationProvider batch via the "More" button. Reset
+  // whenever _customLocation changes.
+  List<PlaceSuggestion> _morePlaces = [];
+  bool _loadingMorePlaces = false;
+  String? _loadMorePlacesError;
 
   // "Popular Destinations" driven by the device's actual geolocation only
   // (never by a manual Local Experiences search — see _useMyLocation vs
@@ -119,11 +130,12 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
           .read(locationRepositoryProvider)
           .fetchCurrentLocationName();
       if (!mounted) return;
-      ref.read(selectedExperienceDestinationProvider.notifier).state = null;
       setState(() {
         _customLocation = name;
         _geoLocation = name;
         _locationController.text = name;
+        _morePlaces = [];
+        _loadMorePlacesError = null;
       });
       unawaited(_loadNearbyDestinations(name));
     } catch (error) {
@@ -142,26 +154,62 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     final text = _locationController.text.trim();
     if (text.isEmpty) return;
     FocusScope.of(context).unfocus();
-    ref.read(selectedExperienceDestinationProvider.notifier).state = null;
-    setState(() => _customLocation = text);
+    setState(() {
+      _customLocation = text;
+      _morePlaces = [];
+      _loadMorePlacesError = null;
+    });
   }
 
   void _clearCustomLocation() {
     setState(() {
       _customLocation = null;
       _locationController.clear();
+      _morePlaces = [];
+      _loadMorePlacesError = null;
     });
+  }
+
+  Future<void> _loadMorePlaces(
+    String location,
+    List<String> alreadyShown,
+  ) async {
+    setState(() {
+      _loadingMorePlaces = true;
+      _loadMorePlacesError = null;
+    });
+    try {
+      final more = await ref
+          .read(aiAssistantRepositoryProvider)
+          .fetchMorePlaces(location, exclude: alreadyShown);
+      if (mounted) setState(() => _morePlaces = [..._morePlaces, ...more]);
+    } catch (_) {
+      if (mounted) {
+        setState(() => _loadMorePlacesError = 'Could not load more places.');
+      }
+    } finally {
+      if (mounted) setState(() => _loadingMorePlaces = false);
+    }
+  }
+
+  /// The signed-in user's first name, from whichever metadata key their
+  /// sign-in method populated (`name` for email/password sign-up — see
+  /// AuthController.signUp — or `full_name`/`name` as auto-filled by
+  /// Google/Apple). Falls back to a generic greeting if neither is set.
+  String _firstNameFrom(User? user) {
+    final metadata = user?.userMetadata;
+    final raw = (metadata?['name'] ?? metadata?['full_name']) as String?;
+    final trimmed = raw?.trim();
+    if (trimmed == null || trimmed.isEmpty) return 'traveler';
+    return trimmed.split(RegExp(r'\s+')).first;
   }
 
   @override
   Widget build(BuildContext context) {
     final destinations = ref.watch(popularDestinationsProvider);
-    final experiences = ref.watch(popularExperiencesProvider);
-    final selectedDestinationId = ref.watch(
-      selectedExperienceDestinationProvider,
-    );
     final customLocation = _customLocation;
     final nearbyDestinations = _nearbyDestinations;
+    final firstName = _firstNameFrom(ref.watch(currentUserProvider));
 
     return Scaffold(
       floatingActionButton: FloatingActionButton(
@@ -173,7 +221,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         child: RefreshIndicator(
           onRefresh: () async {
             ref.invalidate(popularDestinationsProvider);
-            ref.invalidate(popularExperiencesProvider);
             final location = customLocation;
             if (location != null) {
               ref.invalidate(placesForLocationProvider(location));
@@ -186,40 +233,40 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
           child: ListView(
             padding: const EdgeInsets.all(20),
             children: [
-              Align(
-                alignment: Alignment.centerLeft,
-                child: Image.asset(
-                  'assets/brand/ona-logo.png',
-                  height: 30,
-                  fit: BoxFit.contain,
-                ),
-              ),
-              const SizedBox(height: 16),
-              GestureDetector(
-                onTap: () => context.push('/tabs/search'),
-                child: Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 16,
-                    vertical: 14,
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Image.asset(
+                    'assets/brand/ona-logo.png',
+                    height: 30,
+                    fit: BoxFit.contain,
                   ),
-                  decoration: BoxDecoration(
-                    color: AppColors.surface,
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: Row(
+                  Row(
                     children: [
-                      const Icon(
-                        LucideIcons.search,
-                        color: AppColors.textSecondary,
+                      _NotificationsBell(
+                        onPressed: () => context.push('/notifications'),
                       ),
-                      const SizedBox(width: 10),
-                      Text(
-                        'Search destinations',
-                        style: AppTheme.poppins(color: AppColors.textSecondary),
+                      IconButton(
+                        onPressed: () => context.push('/tabs/search'),
+                        icon: const Icon(LucideIcons.search),
+                        tooltip: 'Search destinations',
                       ),
                     ],
                   ),
+                ],
+              ),
+              const SizedBox(height: 8),
+              Text(
+                'Welcome to Ọ̀nà (Way Finder)',
+                style: AppTheme.fredoka(
+                  fontSize: 22,
+                  fontWeight: FontWeight.w600,
                 ),
+              ),
+              const SizedBox(height: 4),
+              Text(
+                'Dear $firstName, where are you exploring today?',
+                style: AppTheme.poppins(color: AppColors.textSecondary),
               ),
               const SizedBox(height: 24),
               Row(
@@ -334,54 +381,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                 style: AppTheme.fredoka(fontSize: 18),
               ),
               const SizedBox(height: 12),
-              if (customLocation == null)
-                destinations.maybeWhen(
-                  data: (items) => items.isEmpty
-                      ? const SizedBox.shrink()
-                      : SizedBox(
-                          height: 36,
-                          child: ListView.separated(
-                            scrollDirection: Axis.horizontal,
-                            itemCount: items.length + 1,
-                            separatorBuilder: (_, _) =>
-                                const SizedBox(width: 8),
-                            itemBuilder: (context, index) {
-                              final id = index == 0
-                                  ? null
-                                  : items[index - 1].id;
-                              final label = index == 0
-                                  ? 'All'
-                                  : items[index - 1].name;
-                              final selected = selectedDestinationId == id;
-                              return ChoiceChip(
-                                label: Text(label),
-                                selected: selected,
-                                onSelected: (_) =>
-                                    ref
-                                            .read(
-                                              selectedExperienceDestinationProvider
-                                                  .notifier,
-                                            )
-                                            .state =
-                                        id,
-                                labelStyle: AppTheme.poppins(
-                                  fontSize: 13,
-                                  color: selected
-                                      ? Colors.white
-                                      : AppColors.text,
-                                ),
-                                backgroundColor: AppColors.surface,
-                                selectedColor: AppColors.primary,
-                                side: BorderSide.none,
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 4,
-                                ),
-                              );
-                            },
-                          ),
-                        ),
-                  orElse: () => const SizedBox.shrink(),
-                ),
               if (customLocation != null)
                 Align(
                   alignment: Alignment.centerLeft,
@@ -417,70 +416,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
               ),
               const SizedBox(height: 16),
               if (customLocation == null)
-                experiences.when(
-                  data: (items) => items.isEmpty
-                      ? Text(
-                          selectedDestinationId == null
-                              ? 'No experiences yet'
-                              : 'No experiences here yet',
-                          style: AppTheme.poppins(
-                            color: AppColors.textSecondary,
-                          ),
-                        )
-                      : Column(
-                          children: items
-                              .map(
-                                (experience) => Padding(
-                                  padding: const EdgeInsets.only(bottom: 12),
-                                  child: InkWell(
-                                    borderRadius: BorderRadius.circular(14),
-                                    onTap: () => context.push(
-                                      '/experience/${experience.id}',
-                                    ),
-                                    child: Container(
-                                      padding: const EdgeInsets.all(16),
-                                      decoration: BoxDecoration(
-                                        color: AppColors.surface,
-                                        borderRadius: BorderRadius.circular(14),
-                                      ),
-                                      child: Row(
-                                        children: [
-                                          Expanded(
-                                            child: Column(
-                                              crossAxisAlignment:
-                                                  CrossAxisAlignment.start,
-                                              children: [
-                                                Text(
-                                                  experience.title,
-                                                  style: AppTheme.fredoka(
-                                                    fontSize: 15,
-                                                  ),
-                                                ),
-                                                const SizedBox(height: 4),
-                                                Text(
-                                                  '\$${experience.price.toStringAsFixed(0)}',
-                                                  style: AppTheme.poppins(
-                                                    color: AppColors.primary,
-                                                    fontWeight: FontWeight.w600,
-                                                  ),
-                                                ),
-                                              ],
-                                            ),
-                                          ),
-                                        ],
-                                      ),
-                                    ),
-                                  ),
-                                ),
-                              )
-                              .toList(),
-                        ),
-                  loading: () =>
-                      const Center(child: CircularProgressIndicator()),
-                  error: (error, _) => ErrorView(
-                    message: 'Could not load experiences',
-                    onRetry: () => ref.invalidate(popularExperiencesProvider),
-                  ),
+                Text(
+                  'Search a location above to see places to explore.',
+                  style: AppTheme.poppins(color: AppColors.textSecondary),
                 )
               else
                 ref
@@ -496,22 +434,48 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                               ),
                             )
                           : Column(
-                              children: items
-                                  .map(
-                                    (place) => Padding(
-                                      padding: const EdgeInsets.only(
-                                        bottom: 12,
-                                      ),
-                                      child: _PlaceListTile(
-                                        place: place,
-                                        onTap: () => context.push(
-                                          '/place-detail',
-                                          extra: place,
-                                        ),
+                              children: [
+                                ...[...items, ..._morePlaces].map(
+                                  (place) => Padding(
+                                    padding: const EdgeInsets.only(bottom: 12),
+                                    child: _PlaceListTile(
+                                      place: place,
+                                      onTap: () => context.push(
+                                        '/place-detail',
+                                        extra: place,
                                       ),
                                     ),
-                                  )
-                                  .toList(),
+                                  ),
+                                ),
+                                if (_loadMorePlacesError != null)
+                                  Padding(
+                                    padding: const EdgeInsets.only(bottom: 8),
+                                    child: Text(
+                                      _loadMorePlacesError!,
+                                      style: AppTheme.poppins(
+                                        color: AppColors.error,
+                                      ),
+                                    ),
+                                  ),
+                                Center(
+                                  child: _loadingMorePlaces
+                                      ? const Padding(
+                                          padding: EdgeInsets.symmetric(
+                                            vertical: 8,
+                                          ),
+                                          child: CircularProgressIndicator(),
+                                        )
+                                      : OutlinedButton(
+                                          onPressed: () => _loadMorePlaces(
+                                            customLocation,
+                                            [...items, ..._morePlaces]
+                                                .map((p) => p.name)
+                                                .toList(),
+                                          ),
+                                          child: const Text('More'),
+                                        ),
+                                ),
+                              ],
                             ),
                       loading: () => const Center(
                         child: Padding(
@@ -568,9 +532,9 @@ class _PlaceCard extends StatelessWidget {
                             background: AppColors.border,
                           ),
                       errorWidget: (context, url, error) =>
-                          Container(color: AppColors.border),
+                          const NoImagePlaceholder(),
                     )
-                  : Container(color: AppColors.border),
+                  : const NoImagePlaceholder(),
             ),
             Padding(
               padding: const EdgeInsets.all(10),
@@ -639,9 +603,9 @@ class _PlaceListTile extends StatelessWidget {
                               background: AppColors.border,
                             ),
                         errorWidget: (context, url, error) =>
-                            Container(color: AppColors.border),
+                            const NoImagePlaceholder(),
                       )
-                    : Container(color: AppColors.border),
+                    : const NoImagePlaceholder(),
               ),
             ),
             const SizedBox(width: 12),
@@ -664,6 +628,42 @@ class _PlaceListTile extends StatelessWidget {
           ],
         ),
       ),
+    );
+  }
+}
+
+/// A bell icon with a small dot badge while there's at least one unread
+/// notification.
+class _NotificationsBell extends ConsumerWidget {
+  const _NotificationsBell({required this.onPressed});
+
+  final VoidCallback onPressed;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final unreadCount = ref.watch(unreadNotificationsCountProvider).valueOrNull ?? 0;
+    return Stack(
+      clipBehavior: Clip.none,
+      children: [
+        IconButton(
+          onPressed: onPressed,
+          icon: const Icon(LucideIcons.bell),
+          tooltip: 'Notifications',
+        ),
+        if (unreadCount > 0)
+          Positioned(
+            right: 6,
+            top: 6,
+            child: Container(
+              width: 9,
+              height: 9,
+              decoration: const BoxDecoration(
+                color: AppColors.gold,
+                shape: BoxShape.circle,
+              ),
+            ),
+          ),
+      ],
     );
   }
 }

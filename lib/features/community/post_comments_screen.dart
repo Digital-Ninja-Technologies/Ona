@@ -9,7 +9,9 @@ import '../../core/models/post_comment.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/widgets/error_view.dart';
+import '../../core/widgets/user_avatar.dart';
 import '../auth/auth_controller.dart';
+import 'widgets/post_card.dart';
 
 class PostCommentsScreen extends ConsumerStatefulWidget {
   const PostCommentsScreen({super.key, required this.postId});
@@ -22,12 +24,37 @@ class PostCommentsScreen extends ConsumerStatefulWidget {
 
 class _PostCommentsScreenState extends ConsumerState<PostCommentsScreen> {
   final _inputController = TextEditingController();
+  final _inputFocusNode = FocusNode();
   bool _sending = false;
+
+  // Non-null while composing a reply — _replyRootId is always a top-level
+  // comment's id (replying to a reply still targets that reply's own root,
+  // so every reply thread stays one level deep; see PostComment.isReply).
+  // _replyToName is who was actually tapped, purely for the "Replying to…"
+  // banner — it may be a reply's author, not the root comment's.
+  String? _replyRootId;
+  String? _replyToName;
 
   @override
   void dispose() {
     _inputController.dispose();
+    _inputFocusNode.dispose();
     super.dispose();
+  }
+
+  void _startReply(PostComment comment) {
+    setState(() {
+      _replyRootId = comment.parentCommentId ?? comment.id;
+      _replyToName = comment.author.handle;
+    });
+    _inputFocusNode.requestFocus();
+  }
+
+  void _cancelReply() {
+    setState(() {
+      _replyRootId = null;
+      _replyToName = null;
+    });
   }
 
   Future<void> _send() async {
@@ -37,14 +64,20 @@ class _PostCommentsScreenState extends ConsumerState<PostCommentsScreen> {
     }
     final content = _inputController.text.trim();
     if (content.isEmpty || _sending) return;
+    final parentCommentId = _replyRootId;
     setState(() => _sending = true);
     _inputController.clear();
     try {
       await ref
           .read(communityRepositoryProvider)
-          .addComment(postId: widget.postId, content: content);
+          .addComment(
+            postId: widget.postId,
+            content: content,
+            parentCommentId: parentCommentId,
+          );
       ref.invalidate(postCommentsProvider(widget.postId));
       ref.invalidate(communityPostsProvider);
+      if (mounted) _cancelReply();
     } catch (_) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -58,6 +91,7 @@ class _PostCommentsScreenState extends ConsumerState<PostCommentsScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final postAsync = ref.watch(singlePostProvider(widget.postId));
     final commentsAsync = ref.watch(postCommentsProvider(widget.postId));
 
     return Scaffold(
@@ -66,31 +100,87 @@ class _PostCommentsScreenState extends ConsumerState<PostCommentsScreen> {
         child: Column(
           children: [
             Expanded(
-              child: commentsAsync.when(
-                loading: () => const Center(child: CircularProgressIndicator()),
-                error: (error, _) => ErrorView(
-                  message: 'Could not load comments.',
-                  onRetry: () =>
-                      ref.invalidate(postCommentsProvider(widget.postId)),
-                ),
-                data: (comments) => comments.isEmpty
-                    ? Center(
-                        child: Text(
-                          'No comments yet. Start the conversation!',
-                          style: AppTheme.poppins(
-                            color: AppColors.textSecondary,
-                          ),
-                        ),
-                      )
-                    : ListView.separated(
-                        padding: const EdgeInsets.all(20),
-                        itemCount: comments.length,
-                        separatorBuilder: (_, _) => const SizedBox(height: 16),
-                        itemBuilder: (context, index) =>
-                            _CommentTile(comment: comments[index]),
+              child: ListView(
+                padding: const EdgeInsets.all(20),
+                children: [
+                  postAsync.when(
+                    loading: () => const Center(
+                      child: Padding(
+                        padding: EdgeInsets.symmetric(vertical: 12),
+                        child: CircularProgressIndicator(),
                       ),
+                    ),
+                    error: (error, _) => const SizedBox.shrink(),
+                    data: (post) => post == null
+                        ? Padding(
+                            padding: const EdgeInsets.only(bottom: 12),
+                            child: Text(
+                              'This post is no longer available.',
+                              style: AppTheme.poppins(
+                                color: AppColors.textSecondary,
+                              ),
+                            ),
+                          )
+                        : Padding(
+                            padding: const EdgeInsets.only(bottom: 16),
+                            child: PostCard(post: post),
+                          ),
+                  ),
+                  const Divider(),
+                  const SizedBox(height: 12),
+                  commentsAsync.when(
+                    loading: () =>
+                        const Center(child: CircularProgressIndicator()),
+                    error: (error, _) => ErrorView(
+                      message: 'Could not load comments.',
+                      onRetry: () =>
+                          ref.invalidate(postCommentsProvider(widget.postId)),
+                    ),
+                    data: (comments) => comments.isEmpty
+                        ? Text(
+                            'No comments yet. Start the conversation!',
+                            style: AppTheme.poppins(
+                              color: AppColors.textSecondary,
+                            ),
+                          )
+                        : _CommentThreadList(
+                            comments: comments,
+                            onReply: _startReply,
+                          ),
+                  ),
+                ],
               ),
             ),
+            if (_replyToName != null)
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 8,
+                ),
+                color: AppColors.surface,
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        'Replying to $_replyToName',
+                        style: AppTheme.poppins(
+                          fontSize: 12,
+                          color: AppColors.textSecondary,
+                        ),
+                      ),
+                    ),
+                    GestureDetector(
+                      onTap: _cancelReply,
+                      child: const Icon(
+                        LucideIcons.x,
+                        size: 16,
+                        color: AppColors.textSecondary,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
               decoration: const BoxDecoration(
@@ -101,8 +191,11 @@ class _PostCommentsScreenState extends ConsumerState<PostCommentsScreen> {
                   Expanded(
                     child: TextField(
                       controller: _inputController,
-                      decoration: const InputDecoration(
-                        hintText: 'Add a comment...',
+                      focusNode: _inputFocusNode,
+                      decoration: InputDecoration(
+                        hintText: _replyToName == null
+                            ? 'Add a comment...'
+                            : 'Reply to $_replyToName...',
                       ),
                       textInputAction: TextInputAction.send,
                       onSubmitted: (_) => _send(),
@@ -123,23 +216,60 @@ class _PostCommentsScreenState extends ConsumerState<PostCommentsScreen> {
   }
 }
 
+/// Groups a flat comment list into top-level comments with their replies
+/// nested directly beneath — see PostComment.parentCommentId.
+class _CommentThreadList extends StatelessWidget {
+  const _CommentThreadList({required this.comments, required this.onReply});
+
+  final List<PostComment> comments;
+  final ValueChanged<PostComment> onReply;
+
+  @override
+  Widget build(BuildContext context) {
+    final roots = comments.where((c) => !c.isReply).toList();
+    final repliesByRoot = <String, List<PostComment>>{};
+    for (final comment in comments) {
+      final rootId = comment.parentCommentId;
+      if (rootId != null) {
+        repliesByRoot.putIfAbsent(rootId, () => []).add(comment);
+      }
+    }
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        for (var i = 0; i < roots.length; i++) ...[
+          if (i > 0) const SizedBox(height: 16),
+          _CommentTile(comment: roots[i], onReply: () => onReply(roots[i])),
+          for (final reply in repliesByRoot[roots[i].id] ?? const [])
+            Padding(
+              padding: const EdgeInsets.only(top: 12, left: 42),
+              child: _CommentTile(
+                comment: reply,
+                onReply: () => onReply(reply),
+              ),
+            ),
+        ],
+      ],
+    );
+  }
+}
+
 class _CommentTile extends StatelessWidget {
-  const _CommentTile({required this.comment});
+  const _CommentTile({required this.comment, required this.onReply});
 
   final PostComment comment;
+  final VoidCallback onReply;
 
   @override
   Widget build(BuildContext context) {
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        CircleAvatar(
+        UserAvatar(
+          name: comment.author.displayName,
+          imageUrl: comment.author.profileImage,
           radius: 16,
-          backgroundColor: AppColors.primary,
-          child: Text(
-            comment.author.displayName[0].toUpperCase(),
-            style: AppTheme.fredoka(color: Colors.white, fontSize: 13),
-          ),
         ),
         const SizedBox(width: 10),
         Expanded(
@@ -149,7 +279,7 @@ class _CommentTile extends StatelessWidget {
               Row(
                 children: [
                   Text(
-                    comment.author.displayName,
+                    comment.author.handle,
                     style: AppTheme.fredoka(fontSize: 13),
                   ),
                   const SizedBox(width: 8),
@@ -164,6 +294,18 @@ class _CommentTile extends StatelessWidget {
               ),
               const SizedBox(height: 4),
               Text(comment.content, style: AppTheme.poppins(fontSize: 14)),
+              const SizedBox(height: 4),
+              GestureDetector(
+                onTap: onReply,
+                child: Text(
+                  'Reply',
+                  style: AppTheme.poppins(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
+                    color: AppColors.textSecondary,
+                  ),
+                ),
+              ),
             ],
           ),
         ),

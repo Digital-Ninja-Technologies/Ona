@@ -81,19 +81,6 @@ final popularDestinationsProvider = FutureProvider<List<Destination>>((ref) {
   return ref.watch(destinationsRepositoryProvider).fetchDestinations(limit: 10);
 });
 
-/// The destination the user has picked to filter "Local Experiences" on the
-/// home screen. Null means "All" (no filter).
-final selectedExperienceDestinationProvider = StateProvider<String?>(
-  (ref) => null,
-);
-
-final popularExperiencesProvider = FutureProvider<List<Experience>>((ref) {
-  final destinationId = ref.watch(selectedExperienceDestinationProvider);
-  return ref
-      .watch(destinationsRepositoryProvider)
-      .fetchExperiences(limit: 5, destinationId: destinationId);
-});
-
 final destinationDetailProvider = FutureProvider.family<Destination, String>((
   ref,
   id,
@@ -117,14 +104,6 @@ final experienceDetailProvider = FutureProvider.family<Experience, String>((
   return ref.watch(destinationsRepositoryProvider).fetchExperience(id);
 });
 
-final searchQueryProvider = StateProvider<String>((ref) => '');
-
-final searchResultsProvider = FutureProvider.autoDispose<List<Destination>>((
-  ref,
-) {
-  final query = ref.watch(searchQueryProvider);
-  if (query.trim().isEmpty) return Future.value(const []);
-  return ref
-      .watch(destinationsRepositoryProvider)
-      .fetchDestinations(search: query, limit: 50);
-});
+// searchQueryProvider and the combined search results provider now live in
+// features/search/search_screen.dart, since search covers itineraries and
+// agent conversations too, not just destinations.

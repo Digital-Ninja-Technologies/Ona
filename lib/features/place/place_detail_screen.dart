@@ -9,6 +9,7 @@ import '../../core/models/place_suggestion.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/widgets/image_loading_placeholder.dart';
+import '../../core/widgets/no_image_placeholder.dart';
 
 /// Full-detail view for an AI-suggested [PlaceSuggestion] — shown when the
 /// user taps a place card/tile on the home screen. Unlike
@@ -79,9 +80,9 @@ class PlaceDetailScreen extends StatelessWidget {
                       placeholder: (context, url) =>
                           const ImageLoadingPlaceholder(),
                       errorWidget: (context, url, error) =>
-                          Container(color: AppColors.surface),
+                          const NoImagePlaceholder(),
                     )
-                  : Container(color: AppColors.surface),
+                  : const NoImagePlaceholder(),
             ),
           ),
           SliverToBoxAdapter(

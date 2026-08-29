@@ -1,5 +1,7 @@
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import '../../features/auth/auth_controller.dart';
 import '../models/public_profile.dart';
 
 /// Batch-fetches public profiles (name/avatar only) for a set of user ids,
@@ -28,3 +30,13 @@ PublicProfile profileOrFallback(
 ) {
   return profiles[id] ?? PublicProfile(id: id);
 }
+
+/// One user's public profile (name, photo, follower/following counts) —
+/// used by [UserProfileScreen]. Falls back to a bare [PublicProfile] (as
+/// [profileOrFallback] does) if the row can't be found.
+final userProfileProvider = FutureProvider.autoDispose
+    .family<PublicProfile, String>((ref, userId) async {
+      final client = ref.watch(supabaseProvider);
+      final profiles = await fetchPublicProfiles(client, [userId]);
+      return profileOrFallback(profiles, userId);
+    });

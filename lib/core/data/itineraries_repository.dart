@@ -57,14 +57,34 @@ class ItinerariesRepository {
     return response['id'] as String;
   }
 
+  /// Searches the signed-in user's itineraries by title, description, or
+  /// destination name — used by the unified search screen. Empty for a
+  /// blank [query] rather than returning everything.
+  Future<List<Itinerary>> searchItineraries(String query) async {
+    final q = query.trim();
+    if (q.isEmpty) return [];
+    final client = _ref.read(supabaseProvider);
+    final response = await client
+        .from('itineraries')
+        .select()
+        .eq('user_id', _userId)
+        .or(
+          'title.ilike.%$q%,description.ilike.%$q%,destination_name.ilike.%$q%',
+        )
+        .order('created_at', ascending: false);
+    return (response as List)
+        .map((row) => Itinerary.fromJson(row as Map<String, dynamic>))
+        .toList();
+  }
+
   Future<void> deleteItinerary(String id) async {
     final client = _ref.read(supabaseProvider);
     await client.from('itineraries').delete().eq('id', id);
   }
 
   /// Calls the `generate-itinerary` Supabase Edge Function, which proxies to
-  /// the Anthropic API using a server-side secret. Throws if the function
-  /// hasn't been deployed / configured with ANTHROPIC_API_KEY.
+  /// Gemini (with a Groq fallback) using server-side secrets. Throws if the
+  /// function hasn't been deployed / configured with GEMINI_API_KEY.
   Future<ItineraryDraft> generateItinerary({
     required String destination,
     required int days,

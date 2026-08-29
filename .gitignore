@@ -46,3 +46,6 @@ app.*.map.json
 
 # Supabase CLI local cache
 /supabase/.temp/
+
+# Local dart-define values (Supabase/Google credentials) — see README.md
+env.json

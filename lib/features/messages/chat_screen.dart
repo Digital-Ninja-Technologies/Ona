@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 
@@ -90,9 +91,15 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
 
     return Scaffold(
       appBar: AppBar(
-        title: Text(
-          otherUserAsync.valueOrNull?.displayName ?? 'Chat',
-          style: AppTheme.fredoka(fontSize: 18),
+        title: GestureDetector(
+          onTap: () {
+            final otherUserId = otherUserAsync.valueOrNull?.id;
+            if (otherUserId != null) context.push('/user/$otherUserId');
+          },
+          child: Text(
+            otherUserAsync.valueOrNull?.displayName ?? 'Chat',
+            style: AppTheme.fredoka(fontSize: 18),
+          ),
         ),
       ),
       body: SafeArea(

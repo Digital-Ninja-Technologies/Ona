@@ -44,7 +44,7 @@ class _InterestsScreenState extends ConsumerState<InterestsScreen> {
     } finally {
       if (mounted) {
         setState(() => _isSaving = false);
-        context.go('/tabs/home');
+        context.go('/onboarding/username');
       }
     }
   }

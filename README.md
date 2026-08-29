@@ -100,6 +100,59 @@ ona://reset-callback
 Without this, Supabase will reject the redirect and the reset email's link
 won't return the user to the app.
 
+### Google and Apple sign-in (optional)
+
+The sign-in and sign-up screens show "Continue with Google" and "Continue
+with Apple" buttons. Both use Supabase's native ID-token flow
+(`signInWithIdToken` in `lib/features/auth/auth_controller.dart`), so no
+extra dependency exists on Supabase's own OAuth redirect. Each provider
+needs first-party credentials before it'll work:
+
+**Google:**
+
+1. In [Google Cloud Console](https://console.cloud.google.com/apis/credentials),
+   create three OAuth 2.0 Client IDs (same project):
+   - **Web application** — no redirect URIs needed for this flow. This is
+     the "web client ID".
+   - **iOS** — bundle ID `com.onathewayfinder.ona`.
+   - **Android** — package name `com.digitalninjatechnologies.ona`, plus
+     your debug/release keystore's SHA-1 fingerprint (`./gradlew
+     signingReport` from `android/`).
+2. In the Supabase dashboard, go to **Authentication → Providers → Google**,
+   enable it, and paste the **web client ID** into "Authorized Client IDs".
+3. In `ios/Runner/Info.plist`, replace
+   `REPLACE_WITH_REVERSED_IOS_CLIENT_ID` in the `CFBundleURLTypes` entry
+   with your iOS client ID reversed (an ID like
+   `1234-abc.apps.googleusercontent.com` becomes
+   `com.googleusercontent.apps.1234-abc`).
+4. Run with both client IDs:
+
+   ```bash
+   flutter run \
+     --dart-define=GOOGLE_WEB_CLIENT_ID=<web-client-id>.apps.googleusercontent.com \
+     --dart-define=GOOGLE_IOS_CLIENT_ID=<ios-client-id>.apps.googleusercontent.com
+   ```
+
+   The Android client ID isn't passed at runtime — Google Sign-In on
+   Android matches it automatically by package name + SHA-1.
+
+**Apple:**
+
+1. In your [Apple Developer account](https://developer.apple.com/account),
+   make sure "Sign in with Apple" is enabled for the app ID
+   `com.onathewayfinder.ona` (Xcode will offer to do this the
+   first time you build, since the entitlement is already checked in at
+   `ios/Runner/Runner.entitlements`).
+2. In the Supabase dashboard, go to **Authentication → Providers → Apple**
+   and enable it — the default settings work for native sign-in from the
+   app (no Services ID/redirect setup needed for iOS).
+3. No dart-defines needed. The button only appears where
+   `SignInWithApple.isAvailable()` returns true (iOS/macOS), since the
+   native flow isn't set up for other platforms here.
+
+Until configured, tapping either button surfaces an error instead of
+crashing.
+
 ## 2. Configure the app with your project credentials
 
 Find your project URL and publishable (anon) key in
@@ -131,20 +184,27 @@ itineraries), `image_picker` (review/post photos), and `url_launcher`
 ## 4. (Optional) AI features: assistant + itinerary generation
 
 The AI assistant chat and "Generate with AI" itinerary flow call two
-Supabase Edge Functions under `supabase/functions/`, which proxy to the
-Anthropic API using a server-side secret — the app never holds an API key
-itself. To enable them:
+Supabase Edge Functions under `supabase/functions/`, which proxy to Gemini's
+free tier (with a Groq fallback for when Gemini's rate limit is hit) using
+server-side secrets — the app never holds an API key itself. To enable
+them:
 
 ```bash
 supabase functions deploy ai-assistant
 supabase functions deploy generate-itinerary
-supabase secrets set ANTHROPIC_API_KEY=sk-ant-...
+supabase secrets set GEMINI_API_KEY=...
+supabase secrets set GROQ_API_KEY=...
 ```
 
-Both functions default to the `claude-sonnet-5` model; override with
-`supabase secrets set ANTHROPIC_MODEL=...` if you want a different one.
-Without a deployed function + secret, tapping the AI assistant or "Generate
-with AI" shows an error message — every other screen works regardless.
+`GROQ_API_KEY` is optional but recommended — without it, a rate-limited
+Gemini request just fails instead of falling back. The ai-assistant
+function also optionally uses `BRAVE_API_KEY` for live web search grounding
+(prices, hours, weather, news) — see the comment at the top of
+`supabase/functions/ai-assistant/index.ts` for details. Override the models
+with `supabase secrets set GEMINI_MODEL=...` / `GROQ_MODEL=...` if you want
+different ones. Without a deployed function + secret, tapping the AI
+assistant or "Generate with AI" shows an error message — every other screen
+works regardless.
 
 ## Verifying it works
 

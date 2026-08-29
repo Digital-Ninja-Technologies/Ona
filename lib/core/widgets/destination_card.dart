@@ -5,6 +5,7 @@ import 'package:lucide_icons_flutter/lucide_icons.dart';
 import '../models/destination.dart';
 import '../theme/app_colors.dart';
 import '../theme/app_theme.dart';
+import 'no_image_placeholder.dart';
 
 class DestinationCard extends StatelessWidget {
   const DestinationCard({
@@ -51,9 +52,9 @@ class DestinationCard extends StatelessWidget {
                               placeholder: (context, url) =>
                                   Container(color: AppColors.surface),
                               errorWidget: (context, url, error) =>
-                                  Container(color: AppColors.surface),
+                                  const NoImagePlaceholder(),
                             )
-                          : Container(color: AppColors.surface),
+                          : const NoImagePlaceholder(),
                     ),
                     if (destination.rating != null)
                       Positioned(

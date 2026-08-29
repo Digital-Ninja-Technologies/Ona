@@ -29,9 +29,10 @@ class _ItineraryCreateScreenState extends ConsumerState<ItineraryCreateScreen> {
   // AI mode state
   final _destinationController = TextEditingController();
   int _selectedDuration = 3;
+  bool _isCustomDuration = false;
+  final _customDurationController = TextEditingController();
   String _selectedBudget = 'moderate';
   bool _generating = false;
-  ItineraryDraft? _draft;
 
   // Manual mode state
   final _titleController = TextEditingController();
@@ -45,6 +46,7 @@ class _ItineraryCreateScreenState extends ConsumerState<ItineraryCreateScreen> {
   @override
   void dispose() {
     _destinationController.dispose();
+    _customDurationController.dispose();
     _titleController.dispose();
     _descriptionController.dispose();
     for (final day in _manualDays) {
@@ -62,10 +64,23 @@ class _ItineraryCreateScreenState extends ConsumerState<ItineraryCreateScreen> {
       );
       return;
     }
-    setState(() {
-      _generating = true;
-      _draft = null;
-    });
+    if (_isCustomDuration) {
+      final days = int.tryParse(_customDurationController.text.trim());
+      if (days == null || days <= 0) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Enter a valid number of days.')),
+        );
+        return;
+      }
+      if (days > 60) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Choose 60 days or fewer.')),
+        );
+        return;
+      }
+      _selectedDuration = days;
+    }
+    setState(() => _generating = true);
     try {
       final draft = await ref
           .read(itinerariesRepositoryProvider)
@@ -85,8 +100,17 @@ class _ItineraryCreateScreenState extends ConsumerState<ItineraryCreateScreen> {
             ),
           );
         }
-      } else {
-        setState(() => _draft = draft);
+      } else if (mounted) {
+        final saved = await context.push<bool>(
+          '/itinerary-preview',
+          extra: {
+            'draft': draft,
+            'destinationName': _destinationController.text.trim(),
+            'durationDays': _selectedDuration,
+            'budget': _selectedBudget,
+          },
+        );
+        if (saved == true && mounted) context.pop(true);
       }
     } catch (_) {
       if (mounted) {
@@ -98,34 +122,6 @@ class _ItineraryCreateScreenState extends ConsumerState<ItineraryCreateScreen> {
       }
     } finally {
       if (mounted) setState(() => _generating = false);
-    }
-  }
-
-  Future<void> _saveAiItinerary() async {
-    final draft = _draft;
-    if (draft == null) return;
-    setState(() => _saving = true);
-    try {
-      await ref
-          .read(itinerariesRepositoryProvider)
-          .createItinerary(
-            title: draft.title,
-            description: draft.description,
-            destinationName: _destinationController.text.trim(),
-            durationDays: _selectedDuration,
-            budget: _selectedBudget,
-            isAiGenerated: true,
-            days: draft.days,
-          );
-      if (mounted) context.pop(true);
-    } catch (_) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Could not save your itinerary.')),
-        );
-      }
-    } finally {
-      if (mounted) setState(() => _saving = false);
     }
   }
 
@@ -225,16 +221,41 @@ class _ItineraryCreateScreenState extends ConsumerState<ItineraryCreateScreen> {
         Wrap(
           spacing: 8,
           runSpacing: 8,
-          children: _durations.map((days) {
-            return ChoiceChip(
-              label: Text(
-                days == 14 ? '2 Weeks' : '$days Day${days > 1 ? 's' : ''}',
-              ),
-              selected: _selectedDuration == days,
-              onSelected: (_) => setState(() => _selectedDuration = days),
-            );
-          }).toList(),
+          children: [
+            ..._durations.map((days) {
+              return ChoiceChip(
+                label: Text(
+                  days == 14 ? '2 Weeks' : '$days Day${days > 1 ? 's' : ''}',
+                ),
+                selected: !_isCustomDuration && _selectedDuration == days,
+                onSelected: (_) => setState(() {
+                  _isCustomDuration = false;
+                  _selectedDuration = days;
+                }),
+              );
+            }),
+            ChoiceChip(
+              label: const Text('Custom'),
+              selected: _isCustomDuration,
+              onSelected: (_) => setState(() => _isCustomDuration = true),
+            ),
+          ],
         ),
+        if (_isCustomDuration) ...[
+          const SizedBox(height: 12),
+          TextField(
+            controller: _customDurationController,
+            keyboardType: TextInputType.number,
+            autofocus: true,
+            decoration: const InputDecoration(hintText: 'Number of days'),
+            onChanged: (value) {
+              final parsed = int.tryParse(value.trim());
+              if (parsed != null && parsed > 0) {
+                setState(() => _selectedDuration = parsed);
+              }
+            },
+          ),
+        ],
         const SizedBox(height: 20),
         Text('Budget', style: AppTheme.fredoka(fontSize: 15)),
         const SizedBox(height: 8),
@@ -264,33 +285,6 @@ class _ItineraryCreateScreenState extends ConsumerState<ItineraryCreateScreen> {
               : const Icon(LucideIcons.sparkles),
           label: Text(_generating ? 'Generating...' : 'Generate with AI'),
         ),
-        if (_draft != null) ...[
-          const SizedBox(height: 24),
-          Text(_draft!.title, style: AppTheme.fredoka(fontSize: 18)),
-          if (_draft!.description != null) ...[
-            const SizedBox(height: 8),
-            Text(
-              _draft!.description!,
-              style: AppTheme.poppins(color: AppColors.textSecondary),
-            ),
-          ],
-          const SizedBox(height: 16),
-          ..._draft!.days.map((day) => _DayPreview(day: day)),
-          const SizedBox(height: 16),
-          ElevatedButton(
-            onPressed: _saving ? null : _saveAiItinerary,
-            child: _saving
-                ? const SizedBox(
-                    height: 20,
-                    width: 20,
-                    child: CircularProgressIndicator(
-                      strokeWidth: 2,
-                      color: Colors.white,
-                    ),
-                  )
-                : const Text('Save Itinerary'),
-          ),
-        ],
       ],
     );
   }
@@ -450,37 +444,6 @@ class _ModeButton extends StatelessWidget {
             ),
           ],
         ),
-      ),
-    );
-  }
-}
-
-class _DayPreview extends StatelessWidget {
-  const _DayPreview({required this.day});
-
-  final ItineraryDay day;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      margin: const EdgeInsets.only(bottom: 12),
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: AppColors.surface,
-        borderRadius: BorderRadius.circular(14),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text('Day ${day.day}', style: AppTheme.fredoka(fontSize: 14)),
-          const SizedBox(height: 6),
-          ...day.activities.map(
-            (activity) => Padding(
-              padding: const EdgeInsets.only(bottom: 4),
-              child: Text('• $activity', style: AppTheme.poppins(fontSize: 13)),
-            ),
-          ),
-        ],
       ),
     );
   }

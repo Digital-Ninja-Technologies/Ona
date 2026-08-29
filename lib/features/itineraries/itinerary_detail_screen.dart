@@ -8,6 +8,7 @@ import '../../core/models/itinerary.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/widgets/error_view.dart';
+import 'widgets/activity_link.dart';
 
 Itinerary? _findById(List<Itinerary> itineraries, String id) {
   for (final itinerary in itineraries) {
@@ -129,25 +130,9 @@ class ItineraryDetailScreen extends ConsumerWidget {
                         ),
                         const SizedBox(height: 8),
                         for (final activity in day.activities)
-                          Padding(
-                            padding: const EdgeInsets.only(bottom: 6),
-                            child: Row(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                const Icon(
-                                  LucideIcons.mapPin,
-                                  size: 14,
-                                  color: AppColors.primary,
-                                ),
-                                const SizedBox(width: 8),
-                                Expanded(
-                                  child: Text(
-                                    activity,
-                                    style: AppTheme.poppins(),
-                                  ),
-                                ),
-                              ],
-                            ),
+                          ActivityLink(
+                            activity: activity,
+                            destinationName: itinerary.destinationName,
                           ),
                       ],
                     ),

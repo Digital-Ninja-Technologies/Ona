@@ -60,6 +60,23 @@ class AiAssistantRepository {
     return _fetchStructuredPlaces('List nice places to visit in $location.');
   }
 
+  /// Fetches another batch of AI-generated places for [location], for a
+  /// "More" button under an existing [fetchPlaces] list. [exclude] is the
+  /// names of places already shown, so the model doesn't just repeat them.
+  Future<List<PlaceSuggestion>> fetchMorePlaces(
+    String location, {
+    required List<String> exclude,
+  }) {
+    final excludeClause = exclude.isEmpty
+        ? ''
+        : ' Do not repeat any of these already-shown places: '
+              '${exclude.join(', ')}.';
+    return _fetchStructuredPlaces(
+      'List more nice places to visit in $location, different from what '
+      "you'd typically suggest first.$excludeClause",
+    );
+  }
+
   /// Fetches AI-generated nearby *destinations* worth traveling to from
   /// [location] — other cities/regions within reach, not attractions inside
   /// [location] itself (contrast with [fetchPlaces]). Used to populate
@@ -68,6 +85,41 @@ class AiAssistantRepository {
     return _fetchStructuredPlaces(
       'List popular travel destinations worth visiting near $location.',
     );
+  }
+
+  /// Resolves one specific named place — e.g. an itinerary activity like
+  /// "Visit the Louvre Museum" — into a full [PlaceSuggestion], used to link
+  /// itinerary activities to the place detail screen. [query] should
+  /// include enough context to disambiguate (activity text plus
+  /// destination). Returns null if the AI couldn't identify a real place.
+  Future<PlaceSuggestion?> lookupPlace(String query) async {
+    final client = _ref.read(supabaseProvider);
+    final response = await client.functions.invoke(
+      'ai-assistant',
+      body: {'message': query, 'singlePlace': true},
+    );
+    final data = response.data;
+    if (data is Map && data['error'] != null) {
+      throw Exception(data['error'].toString());
+    }
+    if (data is! Map || data['reply'] is! String) {
+      throw Exception('Unexpected response from ai-assistant.');
+    }
+
+    var raw = (data['reply'] as String).trim();
+    if (raw.startsWith('```')) {
+      raw = raw
+          .replaceFirst(RegExp(r'^```[a-zA-Z]*\n?'), '')
+          .replaceFirst(RegExp(r'```$'), '')
+          .trim();
+    }
+
+    final decoded = jsonDecode(raw);
+    if (decoded is! Map<String, dynamic>) {
+      throw Exception('Unexpected place format from ai-assistant.');
+    }
+    final place = PlaceSuggestion.fromJson(decoded);
+    return place.name.isEmpty ? null : place;
   }
 
   /// Calls `ai-assistant` with `structuredPlaces: true`, which returns
