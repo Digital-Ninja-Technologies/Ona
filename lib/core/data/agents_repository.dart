@@ -51,9 +51,11 @@ class AgentsRepository {
     return TravelAgent.fromJson(response);
   }
 
-  /// Creates the caller's agent listing, or updates it if they've already
-  /// registered — `travel_agents.user_id` is unique per account.
-  Future<TravelAgent> registerAsAgent({
+  /// Emails a "Register as an Agent" submission to the Ona team via the
+  /// `submit-agent-application` Edge Function, for review — it does not
+  /// write to `travel_agents` directly, so nothing shows up on the public
+  /// agent page until the application is approved.
+  Future<void> submitAgentApplication({
     required String businessName,
     String? bio,
     List<String> specialties = const [],
@@ -62,21 +64,24 @@ class AgentsRepository {
     String? imageUrl,
   }) async {
     final client = _ref.read(supabaseProvider);
-    final userId = client.auth.currentUser!.id;
-    final response = await client
-        .from('travel_agents')
-        .upsert({
-          'user_id': userId,
-          'business_name': businessName,
-          'bio': bio,
-          'specialties': specialties,
-          'languages': languages,
-          'years_experience': yearsExperience,
-          'image_url': imageUrl,
-        }, onConflict: 'user_id')
-        .select()
-        .single();
-    return TravelAgent.fromJson(response);
+    final user = client.auth.currentUser!;
+    final response = await client.functions.invoke(
+      'submit-agent-application',
+      body: {
+        'businessName': businessName,
+        'bio': bio,
+        'specialties': specialties,
+        'languages': languages,
+        'yearsExperience': yearsExperience,
+        'imageUrl': imageUrl,
+        'applicantEmail': user.email,
+        'applicantId': user.id,
+      },
+    );
+    final data = response.data;
+    if (data is Map && data['error'] != null) {
+      throw Exception(data['error'].toString());
+    }
   }
 }
 

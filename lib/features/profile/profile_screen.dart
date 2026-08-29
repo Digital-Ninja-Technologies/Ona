@@ -64,7 +64,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
     final initial = email.isNotEmpty ? email[0].toUpperCase() : '?';
     final profileAsync = ref.watch(myProfileProvider);
     final profileImage = profileAsync.valueOrNull?.profileImage;
-    final isAgent = ref.watch(myAgentProfileProvider).valueOrNull != null;
+    final myAgentProfile = ref.watch(myAgentProfileProvider).valueOrNull;
 
     return Scaffold(
       appBar: AppBar(title: const Text('Profile')),
@@ -177,8 +177,12 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
             ),
             _ProfileMenuItem(
               icon: LucideIcons.briefcase,
-              label: isAgent ? 'My Agent Profile' : 'Register as an Agent',
-              onTap: () => context.push('/agent/register'),
+              label: myAgentProfile != null
+                  ? 'My Agent Profile'
+                  : 'Register as an Agent',
+              onTap: () => myAgentProfile != null
+                  ? context.push('/travel-agent/${myAgentProfile.id}')
+                  : context.push('/agent/register'),
             ),
             const Divider(),
             const SizedBox(height: 12),

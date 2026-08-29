@@ -207,7 +207,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       ),
       GoRoute(
         path: '/agent/register',
-        builder: (context, state) => const RegisterAgentRoute(),
+        builder: (context, state) => const RegisterAgentScreen(),
       ),
       GoRoute(
         path: '/chat/:id',

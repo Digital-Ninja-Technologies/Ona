@@ -1,6 +1,5 @@
 import 'dart:typed_data';
 
-import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -9,27 +8,8 @@ import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 import '../../core/data/agents_repository.dart';
 import '../../core/data/storage_repository.dart';
-import '../../core/models/travel_agent.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_theme.dart';
-
-/// Route target for `/agent/register` — resolves whether the signed-in user
-/// already has an agent listing before deciding whether [RegisterAgentScreen]
-/// starts blank (register) or prefilled (edit).
-class RegisterAgentRoute extends ConsumerWidget {
-  const RegisterAgentRoute({super.key});
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final myAgentAsync = ref.watch(myAgentProfileProvider);
-    return myAgentAsync.when(
-      loading: () =>
-          const Scaffold(body: Center(child: CircularProgressIndicator())),
-      error: (_, _) => const RegisterAgentScreen(),
-      data: (agent) => RegisterAgentScreen(existing: agent),
-    );
-  }
-}
 
 /// Splits a comma-separated field into a trimmed, non-empty list — used for
 /// both specialties and languages so the two fields behave identically.
@@ -39,16 +19,11 @@ List<String> _splitTags(String value) => value
     .where((tag) => tag.isNotEmpty)
     .toList();
 
-/// Lets a signed-in user register (or edit) their own travel-agent listing.
-/// Submitting writes straight to the same `travel_agents` row the public
-/// agents list and [AgentDetailScreen] read from, so what's typed here is
-/// exactly what shows up on the agent's profile page.
+/// Lets a signed-in user apply to become a travel agent. Submitting emails
+/// the details to the Ona team for review — it does not create a public
+/// listing itself, so nothing shows up on the agent page until approved.
 class RegisterAgentScreen extends ConsumerStatefulWidget {
-  const RegisterAgentScreen({super.key, this.existing});
-
-  /// Non-null when editing an already-registered listing — prefills the
-  /// form instead of starting blank.
-  final TravelAgent? existing;
+  const RegisterAgentScreen({super.key});
 
   @override
   ConsumerState<RegisterAgentScreen> createState() =>
@@ -57,19 +32,11 @@ class RegisterAgentScreen extends ConsumerStatefulWidget {
 
 class _RegisterAgentScreenState extends ConsumerState<RegisterAgentScreen> {
   final _formKey = GlobalKey<FormState>();
-  late final _businessNameController = TextEditingController(
-    text: widget.existing?.businessName,
-  );
-  late final _bioController = TextEditingController(text: widget.existing?.bio);
-  late final _specialtiesController = TextEditingController(
-    text: widget.existing?.specialties.join(', '),
-  );
-  late final _languagesController = TextEditingController(
-    text: widget.existing?.languages.join(', '),
-  );
-  late final _yearsController = TextEditingController(
-    text: widget.existing?.yearsExperience?.toString(),
-  );
+  final _businessNameController = TextEditingController();
+  final _bioController = TextEditingController();
+  final _specialtiesController = TextEditingController();
+  final _languagesController = TextEditingController();
+  final _yearsController = TextEditingController();
 
   ({Uint8List bytes, String extension})? _pickedImage;
   bool _submitting = false;
@@ -102,7 +69,7 @@ class _RegisterAgentScreenState extends ConsumerState<RegisterAgentScreen> {
     if (!_formKey.currentState!.validate()) return;
     setState(() => _submitting = true);
     try {
-      String? imageUrl = widget.existing?.imageUrl;
+      String? imageUrl;
       if (_pickedImage != null) {
         imageUrl = await ref
             .read(storageRepositoryProvider)
@@ -111,9 +78,9 @@ class _RegisterAgentScreenState extends ConsumerState<RegisterAgentScreen> {
               extension: _pickedImage!.extension,
             );
       }
-      final agent = await ref
+      await ref
           .read(agentsRepositoryProvider)
-          .registerAsAgent(
+          .submitAgentApplication(
             businessName: _businessNameController.text.trim(),
             bio: _bioController.text.trim().isEmpty
                 ? null
@@ -123,15 +90,21 @@ class _RegisterAgentScreenState extends ConsumerState<RegisterAgentScreen> {
             yearsExperience: int.tryParse(_yearsController.text.trim()),
             imageUrl: imageUrl,
           );
-      ref.invalidate(myAgentProfileProvider);
-      ref.invalidate(agentsListProvider);
-      ref.invalidate(agentDetailProvider(agent.id));
-      if (mounted) context.pushReplacement('/travel-agent/${agent.id}');
+      if (mounted) {
+        context.pop();
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text(
+              "Application sent! We'll review it and reach out by email.",
+            ),
+          ),
+        );
+      }
     } catch (_) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-            content: Text('Could not save your agent profile.'),
+            content: Text('Could not send your application.'),
           ),
         );
       }
@@ -142,11 +115,8 @@ class _RegisterAgentScreenState extends ConsumerState<RegisterAgentScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final isEditing = widget.existing != null;
     return Scaffold(
-      appBar: AppBar(
-        title: Text(isEditing ? 'Edit Agent Profile' : 'Register as an Agent'),
-      ),
+      appBar: AppBar(title: const Text('Register as an Agent')),
       body: SafeArea(
         child: Form(
           key: _formKey,
@@ -154,9 +124,9 @@ class _RegisterAgentScreenState extends ConsumerState<RegisterAgentScreen> {
             padding: const EdgeInsets.all(20),
             children: [
               Text(
-                'These details show up on your public agent profile — '
-                'travelers will see them when they search for an agent to '
-                'help plan their trip.',
+                "Tell us about your travel business. We'll review your "
+                "application and email you once it's approved — your "
+                "profile won't be public until then.",
                 style: AppTheme.poppins(color: AppColors.textSecondary),
               ),
               const SizedBox(height: 20),
@@ -173,11 +143,6 @@ class _RegisterAgentScreenState extends ConsumerState<RegisterAgentScreen> {
                           child: _pickedImage != null
                               ? Image.memory(
                                   _pickedImage!.bytes,
-                                  fit: BoxFit.cover,
-                                )
-                              : widget.existing?.imageUrl != null
-                              ? CachedNetworkImage(
-                                  imageUrl: widget.existing!.imageUrl!,
                                   fit: BoxFit.cover,
                                 )
                               : Container(
@@ -288,7 +253,7 @@ class _RegisterAgentScreenState extends ConsumerState<RegisterAgentScreen> {
                             color: Colors.white,
                           ),
                         )
-                      : Text(isEditing ? 'Save Changes' : 'Register'),
+                      : const Text('Submit Application'),
                 ),
               ),
             ],
