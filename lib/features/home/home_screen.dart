@@ -303,7 +303,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
               ),
               const SizedBox(height: 12),
               SizedBox(
-                height: nearbyDestinations != null ? 225 : 230,
+                height: nearbyDestinations != null ? 245 : 250,
                 child: nearbyDestinations != null
                     ? (nearbyDestinations.isEmpty
                           ? Center(
@@ -499,7 +499,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
 }
 
 /// A "Popular Near Me" card — Brave-sourced photo on top, name + a
-/// two-line description below. Sibling in spirit to [DestinationCard], but
+/// three-line description below. Sibling in spirit to [DestinationCard], but
 /// for an AI-generated [PlaceSuggestion] rather than a database row.
 class _PlaceCard extends StatelessWidget {
   const _PlaceCard({required this.place, required this.onTap});
@@ -554,7 +554,7 @@ class _PlaceCard extends StatelessWidget {
                       fontSize: 11,
                       color: AppColors.textSecondary,
                     ),
-                    maxLines: 2,
+                    maxLines: 3,
                     overflow: TextOverflow.ellipsis,
                   ),
                 ],
@@ -587,7 +587,7 @@ class _PlaceListTile extends StatelessWidget {
           borderRadius: BorderRadius.circular(14),
         ),
         child: Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
+          crossAxisAlignment: CrossAxisAlignment.center,
           children: [
             ClipRRect(
               borderRadius: BorderRadius.circular(10),
@@ -621,6 +621,8 @@ class _PlaceListTile extends StatelessWidget {
                       fontSize: 13,
                       color: AppColors.textSecondary,
                     ),
+                    maxLines: 3,
+                    overflow: TextOverflow.ellipsis,
                   ),
                 ],
               ),
