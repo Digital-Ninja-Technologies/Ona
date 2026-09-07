@@ -11,6 +11,7 @@ import '../../core/data/destinations_repository.dart';
 import '../../core/data/location_repository.dart';
 import '../../core/data/nearby_destinations_cache.dart';
 import '../../core/data/notifications_repository.dart';
+import '../../core/models/place_category.dart';
 import '../../core/models/place_suggestion.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_theme.dart';
@@ -35,9 +36,13 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   String? _customLocation;
   bool _resolvingLocation = false;
 
-  // Extra AI-generated places for _customLocation, appended after the
-  // initial placesForLocationProvider batch via the "More" button. Reset
-  // whenever _customLocation changes.
+  // What the user is looking for in _customLocation — attractions, hotels,
+  // restaurants, etc. Reset to the default whenever _customLocation changes.
+  PlaceCategory _placeCategory = PlaceCategory.initial;
+
+  // Extra AI-generated places for _customLocation + _placeCategory, appended
+  // after the initial placesForLocationProvider batch via the "More" button.
+  // Reset whenever the location or category changes.
   List<PlaceSuggestion> _morePlaces = [];
   bool _loadingMorePlaces = false;
   String? _loadMorePlacesError;
@@ -132,6 +137,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         _customLocation = name;
         _geoLocation = name;
         _locationController.text = name;
+        _placeCategory = PlaceCategory.initial;
         _morePlaces = [];
         _loadMorePlacesError = null;
       });
@@ -154,6 +160,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     FocusScope.of(context).unfocus();
     setState(() {
       _customLocation = text;
+      _placeCategory = PlaceCategory.initial;
       _morePlaces = [];
       _loadMorePlacesError = null;
     });
@@ -163,6 +170,18 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     setState(() {
       _customLocation = null;
       _locationController.clear();
+      _placeCategory = PlaceCategory.initial;
+      _morePlaces = [];
+      _loadMorePlacesError = null;
+    });
+  }
+
+  /// Switches what the location results show — attractions, hotels, etc. The
+  /// "More" list is category-specific, so it's cleared on every switch.
+  void _selectCategory(PlaceCategory category) {
+    if (category == _placeCategory) return;
+    setState(() {
+      _placeCategory = category;
       _morePlaces = [];
       _loadMorePlacesError = null;
     });
@@ -170,6 +189,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
 
   Future<void> _loadMorePlaces(
     String location,
+    PlaceCategory category,
     List<String> alreadyShown,
   ) async {
     setState(() {
@@ -179,7 +199,11 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     try {
       final more = await ref
           .read(aiAssistantRepositoryProvider)
-          .fetchMorePlaces(location, exclude: alreadyShown);
+          .fetchMorePlaces(
+            location,
+            exclude: alreadyShown,
+            category: category,
+          );
       if (mounted) setState(() => _morePlaces = [..._morePlaces, ...more]);
     } catch (_) {
       if (mounted) {
@@ -208,6 +232,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     final customLocation = _customLocation;
     final nearbyDestinations = _nearbyDestinations;
     final firstName = _firstNameFrom(ref.watch(currentUserProvider));
+    final placesQuery = customLocation == null
+        ? null
+        : (location: customLocation, category: _placeCategory);
 
     return Scaffold(
       floatingActionButton: FloatingActionButton(
@@ -219,9 +246,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         child: RefreshIndicator(
           onRefresh: () async {
             ref.invalidate(popularDestinationsProvider);
-            final location = customLocation;
-            if (location != null) {
-              ref.invalidate(placesForLocationProvider(location));
+            if (placesQuery != null) {
+              ref.invalidate(placesForLocationProvider(placesQuery));
             }
             final geoLocation = _geoLocation;
             if (geoLocation != null) {
@@ -376,7 +402,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
               Text(
                 customLocation == null
                     ? 'Input your location to explore'
-                    : 'Places to Visit in $customLocation',
+                    : _placeCategory.headingFor(customLocation),
                 style: AppTheme.fredoka(fontSize: 18),
               ),
               const SizedBox(height: 12),
@@ -413,21 +439,29 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                   ),
                 ],
               ),
+              if (customLocation != null) ...[
+                const SizedBox(height: 12),
+                _CategoryChips(
+                  selected: _placeCategory,
+                  onSelected: _selectCategory,
+                ),
+              ],
               const SizedBox(height: 16),
-              if (customLocation == null)
+              if (placesQuery == null)
                 Text(
                   'Search a location above to see places to explore.',
                   style: AppTheme.poppins(color: AppColors.textSecondary),
                 )
               else
                 ref
-                    .watch(placesForLocationProvider(customLocation))
+                    .watch(placesForLocationProvider(placesQuery))
                     .when(
                       data: (items) => items.isEmpty
                           ? Text(
-                              "Couldn't find suggestions for "
-                              '"$customLocation". Try a different spelling '
-                              'or a nearby city.',
+                              "Couldn't find "
+                              '${placesQuery.category.label.toLowerCase()} for '
+                              '"${placesQuery.location}". Try a different '
+                              'spelling or a nearby city.',
                               style: AppTheme.poppins(
                                 color: AppColors.textSecondary,
                               ),
@@ -440,7 +474,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                                     child: _PlaceListTile(
                                       place: place,
                                       fallbackQuery:
-                                          '${place.name}, $customLocation',
+                                          '${place.name}, ${placesQuery.location}',
                                       onTap: () => context.push(
                                         '/place-detail',
                                         extra: place,
@@ -468,7 +502,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                                         )
                                       : OutlinedButton(
                                           onPressed: () => _loadMorePlaces(
-                                            customLocation,
+                                            placesQuery.location,
+                                            placesQuery.category,
                                             [...items, ..._morePlaces]
                                                 .map((p) => p.name)
                                                 .toList(),
@@ -485,9 +520,12 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                         ),
                       ),
                       error: (error, _) => ErrorView(
-                        message: 'Could not find places for "$customLocation"',
+                        message:
+                            'Could not find '
+                            '${placesQuery.category.label.toLowerCase()} for '
+                            '"${placesQuery.location}"',
                         onRetry: () => ref.invalidate(
-                          placesForLocationProvider(customLocation),
+                          placesForLocationProvider(placesQuery),
                         ),
                       ),
                     ),
@@ -632,6 +670,44 @@ class _PlaceListTile extends StatelessWidget {
             ),
           ],
         ),
+      ),
+    );
+  }
+}
+
+/// Horizontally scrolling filter chips that switch what the location
+/// results show — attractions, hotels, restaurants, and so on.
+class _CategoryChips extends StatelessWidget {
+  const _CategoryChips({required this.selected, required this.onSelected});
+
+  final PlaceCategory selected;
+  final ValueChanged<PlaceCategory> onSelected;
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      height: 36,
+      child: ListView.separated(
+        scrollDirection: Axis.horizontal,
+        itemCount: PlaceCategory.values.length,
+        separatorBuilder: (_, _) => const SizedBox(width: 8),
+        itemBuilder: (context, index) {
+          final category = PlaceCategory.values[index];
+          final isSelected = category == selected;
+          return ChoiceChip(
+            label: Text(category.label),
+            selected: isSelected,
+            onSelected: (_) => onSelected(category),
+            showCheckmark: false,
+            labelStyle: AppTheme.poppins(
+              fontSize: 13,
+              color: isSelected ? AppColors.cream : AppColors.text,
+            ),
+            backgroundColor: AppColors.surface,
+            selectedColor: AppColors.primary,
+            side: BorderSide.none,
+          );
+        },
       ),
     );
   }

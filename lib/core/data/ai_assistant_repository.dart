@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../features/auth/auth_controller.dart';
+import '../models/place_category.dart';
 import '../models/place_suggestion.dart';
 
 class AiAssistantReply {
@@ -53,26 +54,33 @@ class AiAssistantRepository {
     );
   }
 
-  /// Fetches AI-generated place suggestions for a [location] the user typed
+  /// Fetches AI-generated suggestions for a [location] the user typed
   /// manually — used when the app has no database destination matching it.
-  /// These are attractions *within* the location (museums, landmarks, etc).
-  Future<List<PlaceSuggestion>> fetchPlaces(String location) {
-    return _fetchStructuredPlaces('List nice places to visit in $location.');
+  /// These are spots *within* the location, of the kind set by [category]:
+  /// attractions by default, or hotels, restaurants, nightlife, etc.
+  Future<List<PlaceSuggestion>> fetchPlaces(
+    String location, {
+    PlaceCategory category = PlaceCategory.attractions,
+  }) {
+    return _fetchStructuredPlaces(
+      'List ${category.promptNoun} in $location.',
+    );
   }
 
-  /// Fetches another batch of AI-generated places for [location], for a
+  /// Fetches another batch of suggestions for [location] / [category], for a
   /// "More" button under an existing [fetchPlaces] list. [exclude] is the
-  /// names of places already shown, so the model doesn't just repeat them.
+  /// names already shown, so the model doesn't just repeat them.
   Future<List<PlaceSuggestion>> fetchMorePlaces(
     String location, {
     required List<String> exclude,
+    PlaceCategory category = PlaceCategory.attractions,
   }) {
     final excludeClause = exclude.isEmpty
         ? ''
         : ' Do not repeat any of these already-shown places: '
               '${exclude.join(', ')}.';
     return _fetchStructuredPlaces(
-      'List more nice places to visit in $location, different from what '
+      'List more ${category.promptNoun} in $location, different from what '
       "you'd typically suggest first.$excludeClause",
     );
   }
@@ -165,9 +173,15 @@ final aiAssistantRepositoryProvider = Provider<AiAssistantRepository>((ref) {
   return AiAssistantRepository(ref);
 });
 
-/// AI-generated places for a manually-typed location, keyed by the trimmed
-/// location string so re-searching the same text reuses the cached result.
+/// The (location, category) pair a home-screen place lookup is keyed by, so
+/// re-searching the same location + category reuses the cached result.
+typedef PlacesQuery = ({String location, PlaceCategory category});
+
+/// AI-generated suggestions for a manually-typed location and a chosen
+/// [PlaceCategory] (attractions, hotels, restaurants, …).
 final placesForLocationProvider = FutureProvider.family
-    .autoDispose<List<PlaceSuggestion>, String>((ref, location) {
-      return ref.watch(aiAssistantRepositoryProvider).fetchPlaces(location);
+    .autoDispose<List<PlaceSuggestion>, PlacesQuery>((ref, query) {
+      return ref
+          .watch(aiAssistantRepositoryProvider)
+          .fetchPlaces(query.location, category: query.category);
     });
