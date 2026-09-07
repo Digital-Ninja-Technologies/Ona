@@ -32,7 +32,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   final _locationController = TextEditingController();
 
   // Non-null once the user submits a manually-typed (or geolocated) place —
-  // switches "Local Experiences" from the database list to AI-generated
+  // switches the "explore" section from the database list to AI-generated
   // suggestions for that location instead.
   String? _customLocation;
   bool _resolvingLocation = false;
@@ -45,7 +45,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   String? _loadMorePlacesError;
 
   // "Popular Destinations" driven by the device's actual geolocation only
-  // (never by a manual Local Experiences search — see _useMyLocation vs
+  // (never by a manual location search — see _useMyLocation vs
   // _searchCustomLocation). Cached to local storage; refetched only when
   // the resolved location differs from what's cached.
   List<PlaceSuggestion>? _nearbyDestinations;
@@ -376,7 +376,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
               const SizedBox(height: 24),
               Text(
                 customLocation == null
-                    ? 'Local Experiences'
+                    ? 'Input your location to explore'
                     : 'Places to Visit in $customLocation',
                 style: AppTheme.fredoka(fontSize: 18),
               ),
