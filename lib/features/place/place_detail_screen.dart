@@ -1,4 +1,3 @@
-import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
@@ -8,8 +7,7 @@ import '../../core/models/place_review.dart';
 import '../../core/models/place_suggestion.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_theme.dart';
-import '../../core/widgets/image_loading_placeholder.dart';
-import '../../core/widgets/no_image_placeholder.dart';
+import '../../core/widgets/place_image.dart';
 
 /// Full-detail view for an AI-suggested [PlaceSuggestion] — shown when the
 /// user taps a place card/tile on the home screen. Unlike
@@ -73,16 +71,12 @@ class PlaceDetailScreen extends StatelessWidget {
               onTap: () => context.pop(),
             ),
             flexibleSpace: FlexibleSpaceBar(
-              background: place.imageUrl != null
-                  ? CachedNetworkImage(
-                      imageUrl: place.imageUrl!,
-                      fit: BoxFit.cover,
-                      placeholder: (context, url) =>
-                          const ImageLoadingPlaceholder(),
-                      errorWidget: (context, url, error) =>
-                          const NoImagePlaceholder(),
-                    )
-                  : const NoImagePlaceholder(),
+              background: PlaceImage(
+                imageUrl: place.imageUrl,
+                fallbackQuery: place.address != null
+                    ? '${place.name}, ${place.address}'
+                    : place.name,
+              ),
             ),
           ),
           SliverToBoxAdapter(

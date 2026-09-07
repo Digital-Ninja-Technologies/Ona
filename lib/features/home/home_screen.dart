@@ -1,6 +1,5 @@
 import 'dart:async';
 
-import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -17,8 +16,7 @@ import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/widgets/destination_card.dart';
 import '../../core/widgets/error_view.dart';
-import '../../core/widgets/image_loading_placeholder.dart';
-import '../../core/widgets/no_image_placeholder.dart';
+import '../../core/widgets/place_image.dart';
 import '../auth/auth_controller.dart';
 
 class HomeScreen extends ConsumerStatefulWidget {
@@ -323,6 +321,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                                 final place = nearbyDestinations[index];
                                 return _PlaceCard(
                                   place: place,
+                                  fallbackQuery: place.name,
                                   onTap: () => context.push(
                                     '/place-detail',
                                     extra: place,
@@ -440,6 +439,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                                     padding: const EdgeInsets.only(bottom: 12),
                                     child: _PlaceListTile(
                                       place: place,
+                                      fallbackQuery:
+                                          '${place.name}, $customLocation',
                                       onTap: () => context.push(
                                         '/place-detail',
                                         extra: place,
@@ -502,10 +503,18 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
 /// three-line description below. Sibling in spirit to [DestinationCard], but
 /// for an AI-generated [PlaceSuggestion] rather than a database row.
 class _PlaceCard extends StatelessWidget {
-  const _PlaceCard({required this.place, required this.onTap});
+  const _PlaceCard({
+    required this.place,
+    required this.onTap,
+    required this.fallbackQuery,
+  });
 
   final PlaceSuggestion place;
   final VoidCallback onTap;
+
+  /// Search text for a client-side photo lookup when [place] has no
+  /// server-attached image — see [PlaceImage].
+  final String fallbackQuery;
 
   @override
   Widget build(BuildContext context) {
@@ -523,18 +532,11 @@ class _PlaceCard extends StatelessWidget {
           children: [
             AspectRatio(
               aspectRatio: 4 / 3,
-              child: place.imageUrl != null
-                  ? CachedNetworkImage(
-                      imageUrl: place.imageUrl!,
-                      fit: BoxFit.cover,
-                      placeholder: (context, url) =>
-                          const ImageLoadingPlaceholder(
-                            background: AppColors.border,
-                          ),
-                      errorWidget: (context, url, error) =>
-                          const NoImagePlaceholder(),
-                    )
-                  : const NoImagePlaceholder(),
+              child: PlaceImage(
+                imageUrl: place.imageUrl,
+                fallbackQuery: fallbackQuery,
+                background: AppColors.border,
+              ),
             ),
             Padding(
               padding: const EdgeInsets.all(10),
@@ -570,10 +572,18 @@ class _PlaceCard extends StatelessWidget {
 /// A "Places to Visit" row — thumbnail + name/description, matching the
 /// destination detail screen's attraction-card visual pattern.
 class _PlaceListTile extends StatelessWidget {
-  const _PlaceListTile({required this.place, required this.onTap});
+  const _PlaceListTile({
+    required this.place,
+    required this.onTap,
+    required this.fallbackQuery,
+  });
 
   final PlaceSuggestion place;
   final VoidCallback onTap;
+
+  /// Search text for a client-side photo lookup when [place] has no
+  /// server-attached image — see [PlaceImage].
+  final String fallbackQuery;
 
   @override
   Widget build(BuildContext context) {
@@ -594,18 +604,11 @@ class _PlaceListTile extends StatelessWidget {
               child: SizedBox(
                 width: 72,
                 height: 72,
-                child: place.imageUrl != null
-                    ? CachedNetworkImage(
-                        imageUrl: place.imageUrl!,
-                        fit: BoxFit.cover,
-                        placeholder: (context, url) =>
-                            const ImageLoadingPlaceholder(
-                              background: AppColors.border,
-                            ),
-                        errorWidget: (context, url, error) =>
-                            const NoImagePlaceholder(),
-                      )
-                    : const NoImagePlaceholder(),
+                child: PlaceImage(
+                  imageUrl: place.imageUrl,
+                  fallbackQuery: fallbackQuery,
+                  background: AppColors.border,
+                ),
               ),
             ),
             const SizedBox(width: 12),
