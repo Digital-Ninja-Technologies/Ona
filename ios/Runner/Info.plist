@@ -47,6 +47,8 @@
 	<string>Ona uses your camera to take photos for reviews and community posts.</string>
 	<key>NSLocationWhenInUseUsageDescription</key>
 	<string>Ona uses your location to suggest nearby places worth visiting.</string>
+	<key>NSLocationAlwaysAndWhenInUseUsageDescription</key>
+	<string>Ona uses your location to suggest nearby places worth visiting.</string>
 	<key>NSPhotoLibraryUsageDescription</key>
 	<string>Ona uses your photo library to attach photos to reviews and community posts.</string>
 	<key>UIApplicationSceneManifest</key>
