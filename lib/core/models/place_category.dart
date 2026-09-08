@@ -5,6 +5,10 @@
 enum PlaceCategory {
   attractions('Attractions', 'top attractions and sights worth visiting'),
   hotels('Hotels', 'well-reviewed hotels and places to stay'),
+  shortlets(
+    'Shortlets',
+    'short-let and serviced apartments for a short stay',
+  ),
   restaurants('Restaurants', 'popular restaurants to eat at'),
   cafes('Cafés', 'notable cafés, bakeries and coffee shops'),
   thingsToDo('Things to do', 'fun activities, tours and experiences to book'),
