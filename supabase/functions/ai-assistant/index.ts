@@ -29,6 +29,12 @@
 // training data — search never breaks the chat.
 //   supabase secrets set BRAVE_API_KEY=...
 //
+// Set "structuredInfo": true to get a plain JSON answer (no place/image
+// enrichment, no "Sources" footer) shaped exactly however the message asks
+// — used for the travel-essentials lookups (local food guide, local SIM /
+// eSIM options, visa requirements). It always runs a Brave search first so
+// the answer reflects current rules and prices; parse "reply" client-side.
+//
 // Set "structuredPlaces": true to get a JSON array of place suggestions
 // instead of a chat reply — used for "nice places to visit in <location>"
 // lookups. In that mode "reply" is a JSON string of
@@ -50,7 +56,8 @@
 //   "message": string,
 //   "previousInteractionId": string | null,
 //   "history": { "role": "user" | "assistant", "content": string }[] | null,
-//   "structuredPlaces": boolean | null
+//   "structuredPlaces": boolean | null,
+//   "structuredInfo": boolean | null
 // }
 // Response body: { "reply": string, "interactionId": string | null }
 
@@ -86,6 +93,18 @@ const PLACES_SYSTEM_PROMPT =
   "specific place; otherwise use null for that field — never invent a " +
   "phone number or URL. If the location isn't a real, identifiable " +
   "place, respond with an empty array: [].";
+
+// Used instead of BASE_SYSTEM_PROMPT for structuredInfo: true — the client
+// spells out the exact JSON shape it wants in the message, this just holds
+// the model to "JSON only, grounded in the search results, no prose".
+const INFO_SYSTEM_PROMPT =
+  "You are a travel expert. Answer the user's request with ONLY valid JSON " +
+  "in exactly the shape they describe — no markdown, no code fences, no " +
+  "commentary before or after, and never append a 'Sources' section. Base " +
+  "anything time-sensitive (visa rules, fees, carriers, prices) on the " +
+  "provided web search results and keep it accurate rather than " +
+  "comprehensive. If you genuinely cannot answer, return the requested " +
+  "shape with empty strings and empty arrays.";
 
 // Used instead of BASE_SYSTEM_PROMPT when the client asks to resolve one
 // specific named place (singlePlace: true) — e.g. linking an itinerary
@@ -405,23 +424,27 @@ Deno.serve(async (req: Request) => {
       previousInteractionId,
       history,
       structuredPlaces,
+      structuredInfo,
       singlePlace,
     } = await req.json();
     if (typeof message !== "string" || message.trim().length === 0) {
       return jsonResponse({ error: "message is required" }, 400);
     }
 
-    // Structured place lookups always search (freshness matters more than
-    // quota here, and it's a deliberate one-off action, not chat spam);
-    // regular chat only searches when the message looks time-sensitive.
-    const searchResults = structuredPlaces || singlePlace || needsSearch(message)
-      ? await braveSearch(message)
-      : [];
+    // Structured lookups always search (freshness matters more than quota
+    // here, and it's a deliberate one-off action, not chat spam); regular
+    // chat only searches when the message looks time-sensitive.
+    const searchResults =
+      structuredPlaces || singlePlace || structuredInfo || needsSearch(message)
+        ? await braveSearch(message)
+        : [];
     const basePrompt = structuredPlaces
       ? PLACES_SYSTEM_PROMPT
       : singlePlace
         ? SINGLE_PLACE_SYSTEM_PROMPT
-        : BASE_SYSTEM_PROMPT;
+        : structuredInfo
+          ? INFO_SYSTEM_PROMPT
+          : BASE_SYSTEM_PROMPT;
     const systemInstruction = buildSystemInstruction(basePrompt, searchResults);
 
     // Cap how long we wait on Gemini. Without this, a stalled response from
@@ -515,7 +538,12 @@ Deno.serve(async (req: Request) => {
       }
     }
 
-    if (!structuredPlaces && !singlePlace && searchResults.length > 0) {
+    if (
+      !structuredPlaces &&
+      !singlePlace &&
+      !structuredInfo &&
+      searchResults.length > 0
+    ) {
       const sources = searchResults
         .map((r) => `- ${r.title}: ${r.url}`)
         .join("\n");

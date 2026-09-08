@@ -53,17 +53,20 @@ const _tools = [
   _EssentialTool(
     icon: LucideIcons.fileText,
     title: 'Visa Requirements',
-    description: 'Check visa needs for your destination',
+    description: 'Check visa needs for any passport and destination',
+    route: '/essentials/visa-requirements',
   ),
   _EssentialTool(
     icon: LucideIcons.wifi,
     title: 'Local SIM Cards',
-    description: 'Staying connected on the road',
+    description: 'Carriers, eSIMs and prices where you are',
+    route: '/essentials/sim-cards',
   ),
   _EssentialTool(
     icon: LucideIcons.utensilsCrossed,
     title: 'Local Food Guide',
-    description: 'Must-try dishes and dining tips',
+    description: 'Must-try dishes and dining tips for your location',
+    route: '/essentials/food-guide',
   ),
 ];
 

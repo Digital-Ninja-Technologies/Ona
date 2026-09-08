@@ -22,8 +22,11 @@ import '../../features/essentials/currency_converter_screen.dart';
 import '../../features/essentials/emergency_contacts_screen.dart';
 import '../../features/essentials/essentials_screen.dart';
 import '../../features/essentials/etiquette_screen.dart';
+import '../../features/essentials/food_guide_screen.dart';
 import '../../features/essentials/packing_checklist_screen.dart';
 import '../../features/essentials/safety_tips_screen.dart';
+import '../../features/essentials/sim_cards_screen.dart';
+import '../../features/essentials/visa_requirements_screen.dart';
 import '../../features/experience/experience_detail_screen.dart';
 import '../../features/home/home_screen.dart';
 import '../../features/itineraries/itineraries_screen.dart';
@@ -293,6 +296,18 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: '/essentials/packing-checklist',
         builder: (context, state) => const PackingChecklistScreen(),
+      ),
+      GoRoute(
+        path: '/essentials/visa-requirements',
+        builder: (context, state) => const VisaRequirementsScreen(),
+      ),
+      GoRoute(
+        path: '/essentials/sim-cards',
+        builder: (context, state) => const SimCardsScreen(),
+      ),
+      GoRoute(
+        path: '/essentials/food-guide',
+        builder: (context, state) => const FoodGuideScreen(),
       ),
       ShellRoute(
         builder: (context, state, child) {

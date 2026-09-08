@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../features/auth/auth_controller.dart';
 import '../models/place_category.dart';
 import '../models/place_suggestion.dart';
+import '../models/travel_info.dart';
 
 class AiAssistantReply {
   const AiAssistantReply({required this.text, required this.interactionId});
@@ -167,6 +168,93 @@ class AiAssistantRepository {
         .where((place) => place.name.isNotEmpty)
         .toList();
   }
+
+  /// A local food guide for [location] — must-try dishes, local drinks, and
+  /// dining tips, grounded in live web results.
+  Future<FoodGuide> fetchFoodGuide(String location) async {
+    final json = await _fetchStructuredInfo(
+      'Give a local food guide for $location. Respond with ONLY a JSON '
+      'object shaped {"summary": string, "dishes": [{"name": string, '
+      '"description": string, "whereToTry": string}], "drinks": [{"name": '
+      'string, "description": string}], "tips": [string]}. Include 6 to 8 '
+      'must-try local dishes (with a specific well-known restaurant, market '
+      'or street-food area to try each), 2 to 4 notable local drinks, and 3 '
+      'to 5 practical dining tips covering meal times, tipping, street-food '
+      'safety and etiquette.',
+    );
+    return FoodGuide.fromJson(json);
+  }
+
+  /// A guide to getting mobile data in [location] as a traveler — local
+  /// carriers, eSIM options, current prices, and where to buy.
+  Future<SimGuide> fetchSimGuide(String location) async {
+    final json = await _fetchStructuredInfo(
+      'Give a guide to getting a tourist mobile data plan in $location. '
+      'Respond with ONLY a JSON object shaped {"summary": string, '
+      '"options": [{"provider": string, "type": string, "typicalPrice": '
+      'string, "notes": string}], "whereToBuy": [string], "tips": '
+      '[string]}. Cover the main local carriers and any reputable eSIM '
+      'options, where "type" is "Physical SIM" or "eSIM" and "typicalPrice" '
+      'is the current approximate cost of a typical tourist data package '
+      '(state the local currency). List where to buy (airport, carrier '
+      'shops, convenience stores, online) and setup tips such as passport '
+      'or SIM-registration requirements and coverage.',
+    );
+    return SimGuide.fromJson(json);
+  }
+
+  /// Tourist visa requirements for a [fromCountry] passport holder
+  /// travelling to [toCountry], grounded in current published rules.
+  Future<VisaRequirement> fetchVisaRequirement({
+    required String fromCountry,
+    required String toCountry,
+  }) async {
+    final json = await _fetchStructuredInfo(
+      'A traveler holding a passport from $fromCountry wants to visit '
+      '$toCountry for tourism. Respond with ONLY a JSON object shaped '
+      '{"requirement": string, "summary": string, "allowedStay": string, '
+      '"cost": string, "processingTime": string, "howToApply": string, '
+      '"documents": [string], "notes": [string]}. "requirement" must be '
+      'exactly one of "Visa-free", "Visa on arrival", "eVisa", "Visa '
+      'required" or "Unknown". Base every field on the current published '
+      'rules in the search results; "notes" should flag things like '
+      'passport validity, onward-ticket or funds requirements, and recent '
+      'changes.',
+    );
+    return VisaRequirement.fromJson(json);
+  }
+
+  /// Calls `ai-assistant` with `structuredInfo: true` and returns the
+  /// parsed JSON object from `reply`. Throws if the function errors or the
+  /// reply isn't a parseable JSON object.
+  Future<Map<String, dynamic>> _fetchStructuredInfo(String message) async {
+    final client = _ref.read(supabaseProvider);
+    final response = await client.functions.invoke(
+      'ai-assistant',
+      body: {'message': message, 'structuredInfo': true},
+    );
+    final data = response.data;
+    if (data is Map && data['error'] != null) {
+      throw Exception(data['error'].toString());
+    }
+    if (data is! Map || data['reply'] is! String) {
+      throw Exception('Unexpected response from ai-assistant.');
+    }
+
+    var raw = (data['reply'] as String).trim();
+    if (raw.startsWith('```')) {
+      raw = raw
+          .replaceFirst(RegExp(r'^```[a-zA-Z]*\n?'), '')
+          .replaceFirst(RegExp(r'```$'), '')
+          .trim();
+    }
+
+    final decoded = jsonDecode(raw);
+    if (decoded is! Map<String, dynamic>) {
+      throw Exception('Unexpected response format from ai-assistant.');
+    }
+    return decoded;
+  }
 }
 
 final aiAssistantRepositoryProvider = Provider<AiAssistantRepository>((ref) {
@@ -184,4 +272,33 @@ final placesForLocationProvider = FutureProvider.family
       return ref
           .watch(aiAssistantRepositoryProvider)
           .fetchPlaces(query.location, category: query.category);
+    });
+
+/// Local food guide for a location, keyed by the trimmed location string.
+final foodGuideProvider = FutureProvider.family
+    .autoDispose<FoodGuide, String>((ref, location) {
+      return ref.watch(aiAssistantRepositoryProvider).fetchFoodGuide(location);
+    });
+
+/// Local SIM / eSIM guide for a location, keyed by the trimmed location.
+final simGuideProvider = FutureProvider.family.autoDispose<SimGuide, String>((
+  ref,
+  location,
+) {
+  return ref.watch(aiAssistantRepositoryProvider).fetchSimGuide(location);
+});
+
+/// The passport / destination pair a visa lookup is keyed by.
+typedef VisaQuery = ({String fromCountry, String toCountry});
+
+/// Tourist visa requirements for a (passport country, destination country)
+/// pair, keyed so re-checking the same pair reuses the result.
+final visaRequirementProvider = FutureProvider.family
+    .autoDispose<VisaRequirement, VisaQuery>((ref, query) {
+      return ref
+          .watch(aiAssistantRepositoryProvider)
+          .fetchVisaRequirement(
+            fromCountry: query.fromCountry,
+            toCountry: query.toCountry,
+          );
     });
