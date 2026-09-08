@@ -15,6 +15,7 @@ import '../../core/models/place_category.dart';
 import '../../core/models/place_suggestion.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_theme.dart';
+import '../../core/widgets/app_loader.dart';
 import '../../core/widgets/destination_card.dart';
 import '../../core/widgets/error_view.dart';
 import '../../core/widgets/place_image.dart';
@@ -388,8 +389,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                                             ),
                                           ),
                                     ),
-                              loading: () => const Center(
-                                child: CircularProgressIndicator(),
+                              loading: () => const AppLoaderCenter(
+                                padding: EdgeInsets.zero,
                               ),
                               error: (error, _) => ErrorView(
                                 message: 'Could not load destinations',
@@ -513,11 +514,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                                 ),
                               ],
                             ),
-                      loading: () => const Center(
-                        child: Padding(
-                          padding: EdgeInsets.symmetric(vertical: 24),
-                          child: CircularProgressIndicator(),
-                        ),
+                      loading: () => const AppLoaderCenter(
+                        padding: EdgeInsets.symmetric(vertical: 32),
                       ),
                       error: (error, _) => ErrorView(
                         message:

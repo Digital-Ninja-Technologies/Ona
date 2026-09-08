@@ -8,6 +8,7 @@ import '../../core/data/location_repository.dart';
 import '../../core/models/travel_info.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_theme.dart';
+import '../../core/widgets/app_loader.dart';
 import '../../core/widgets/country_picker.dart';
 import '../../core/widgets/error_view.dart';
 
@@ -119,7 +120,9 @@ class _VisaRequirementsScreenState
                     )),
                   )
                   .when(
-                    loading: () => const _Loading(),
+                    loading: () => const AppLoaderCenter(
+                      label: 'Checking current visa rules...',
+                    ),
                     error: (_, _) => ErrorView(
                       message: 'Could not load visa requirements',
                       onRetry: () => ref.invalidate(
@@ -345,27 +348,6 @@ class _Bullet extends StatelessWidget {
         children: [
           Text('•  ', style: AppTheme.poppins()),
           Expanded(child: Text(text, style: AppTheme.poppins(fontSize: 13))),
-        ],
-      ),
-    );
-  }
-}
-
-class _Loading extends StatelessWidget {
-  const _Loading();
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 40),
-      child: Column(
-        children: [
-          const CircularProgressIndicator(),
-          const SizedBox(height: 16),
-          Text(
-            'Checking current visa rules...',
-            style: AppTheme.poppins(color: AppColors.textSecondary),
-          ),
         ],
       ),
     );
