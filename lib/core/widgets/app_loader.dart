@@ -1,18 +1,13 @@
 import 'package:flutter/material.dart';
-import 'package:video_player/video_player.dart';
 
 import '../theme/app_colors.dart';
 import '../theme/app_theme.dart';
 
-/// The app's branded loading indicator — the Ọ̀nà logo animation looping in
+/// The app's branded loading indicator — a single Way Gold dot, breathing on
 /// a Deep Green badge, with an optional [label] underneath. Use it for
 /// page- and section-level waits (where a spinner would otherwise sit in a
 /// `Center`); keep the plain `CircularProgressIndicator` for tiny inline
 /// spots like buttons.
-///
-/// All instances share one muted, looping [VideoPlayerController] (created
-/// on first use, never disposed — like any long-lived app asset), so several
-/// loaders on screen at once cost only one video decoder.
 class AppLoader extends StatefulWidget {
   const AppLoader({super.key, this.label, this.size = 84});
 
@@ -23,67 +18,54 @@ class AppLoader extends StatefulWidget {
   State<AppLoader> createState() => _AppLoaderState();
 }
 
-class _AppLoaderState extends State<AppLoader> {
-  static VideoPlayerController? _controller;
-  static Future<void>? _initFuture;
+class _AppLoaderState extends State<AppLoader>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _controller = AnimationController(
+    vsync: this,
+    duration: const Duration(milliseconds: 850),
+  )..repeat(reverse: true);
+
+  late final Animation<double> _pulse = CurvedAnimation(
+    parent: _controller,
+    curve: Curves.easeInOut,
+  );
 
   @override
-  void initState() {
-    super.initState();
-    _initFuture ??= _initialize();
-    _initFuture!.whenComplete(() {
-      if (mounted) setState(() {});
-    });
-  }
-
-  static Future<void> _initialize() async {
-    final controller = VideoPlayerController.asset(
-      'assets/brand/ona-logo-animation.mp4',
-    );
-    _controller = controller;
-    await controller.initialize();
-    await controller.setVolume(0);
-    await controller.setLooping(true);
-    await controller.play();
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
-    final controller = _controller;
-    final ready = controller != null && controller.value.isInitialized;
-
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
-        ClipRRect(
-          borderRadius: BorderRadius.circular(widget.size * 0.28),
-          child: Container(
-            width: widget.size,
-            height: widget.size,
+        Container(
+          width: widget.size,
+          height: widget.size,
+          decoration: BoxDecoration(
             color: AppColors.primaryDark,
-            alignment: Alignment.center,
-            child: ready
-                ? FittedBox(
-                    fit: BoxFit.cover,
-                    clipBehavior: Clip.hardEdge,
-                    child: SizedBox(
-                      width: controller.value.size.width,
-                      height: controller.value.size.height,
-                      // The mark sits in the middle ~15% of the frame, so
-                      // zoom into the centre rather than showing a mostly
-                      // empty green rectangle.
-                      child: Transform.scale(
-                        scale: 2.6,
-                        child: VideoPlayer(controller),
-                      ),
-                    ),
-                  )
-                : Image.asset(
-                    'assets/brand/ona-mark-on-dark.png',
-                    width: widget.size * 0.5,
-                    height: widget.size * 0.5,
-                    fit: BoxFit.contain,
-                  ),
+            borderRadius: BorderRadius.circular(widget.size * 0.28),
+          ),
+          alignment: Alignment.center,
+          child: AnimatedBuilder(
+            animation: _pulse,
+            builder: (context, child) => Opacity(
+              opacity: 0.55 + _pulse.value * 0.45,
+              child: Transform.scale(
+                scale: 0.75 + _pulse.value * 0.25,
+                child: child,
+              ),
+            ),
+            child: Container(
+              width: widget.size * 0.26,
+              height: widget.size * 0.26,
+              decoration: const BoxDecoration(
+                color: AppColors.gold,
+                shape: BoxShape.circle,
+              ),
+            ),
           ),
         ),
         if (widget.label != null) ...[
