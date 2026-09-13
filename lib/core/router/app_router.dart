@@ -14,7 +14,6 @@ import '../../features/auth/sign_in_screen.dart';
 import '../../features/auth/sign_up_screen.dart';
 import '../../features/booking/booking_flow_screen.dart';
 import '../../features/booking/booking_success_screen.dart';
-import '../../features/browser/in_app_browser_screen.dart';
 import '../../features/community/community_screen.dart';
 import '../../features/community/create_post_screen.dart';
 import '../../features/community/post_comments_screen.dart';
@@ -185,21 +184,6 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         },
         builder: (context, state) =>
             PlaceDetailScreen(place: state.extra as PlaceSuggestion),
-      ),
-      GoRoute(
-        path: '/browser',
-        redirect: (context, state) {
-          final args = state.extra;
-          if (args is! Map || args['url'] is! String) return '/tabs/home';
-          return null;
-        },
-        builder: (context, state) {
-          final args = state.extra as Map;
-          return InAppBrowserScreen(
-            url: args['url'] as String,
-            initialTitle: args['title'] as String?,
-          );
-        },
       ),
       GoRoute(
         path: '/reviews',

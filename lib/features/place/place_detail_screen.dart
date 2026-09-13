@@ -20,39 +20,42 @@ class PlaceDetailScreen extends StatelessWidget {
 
   final PlaceSuggestion place;
 
-  void _openDirections(BuildContext context) {
+  Future<void> _openDirections(BuildContext context) async {
     final query = Uri.encodeComponent(
       place.address != null ? '${place.name}, ${place.address}' : place.name,
     );
-    _openInApp(
-      context,
+    final uri = Uri.parse(
       'https://www.google.com/maps/search/?api=1&query=$query',
-      title: 'Directions',
     );
+    await _launch(context, uri, 'Could not open the maps app.');
   }
 
-  /// The only external link that still leaves the app — a phone call can't
-  /// be rendered in a webview, it has to go to the system dialer.
   Future<void> _call(BuildContext context) async {
     final uri = Uri(scheme: 'tel', path: place.phone);
+    await _launch(context, uri, 'Could not open the phone dialer.');
+  }
+
+  Future<void> _openWebsite(BuildContext context) async {
+    final raw = place.website!;
+    final uri = Uri.parse(
+      raw.startsWith('http://') || raw.startsWith('https://')
+          ? raw
+          : 'https://$raw',
+    );
+    await _launch(context, uri, 'Could not open the website.');
+  }
+
+  Future<void> _launch(
+    BuildContext context,
+    Uri uri,
+    String failureMessage,
+  ) async {
     final launched = await launchUrl(uri, mode: LaunchMode.externalApplication);
     if (!launched && context.mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Could not open the phone dialer.')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(failureMessage)));
     }
-  }
-
-  void _openWebsite(BuildContext context) {
-    final raw = place.website!;
-    final url = raw.startsWith('http://') || raw.startsWith('https://')
-        ? raw
-        : 'https://$raw';
-    _openInApp(context, url, title: place.name);
-  }
-
-  void _openInApp(BuildContext context, String url, {String? title}) {
-    context.push('/browser', extra: {'url': url, 'title': title});
   }
 
   @override
@@ -150,10 +153,10 @@ class PlaceDetailScreen extends StatelessWidget {
                     ...place.reviews.map(
                       (review) => _ReviewCard(
                         review: review,
-                        onTap: () => _openInApp(
+                        onTap: () => _launch(
                           context,
-                          review.url,
-                          title: review.source,
+                          Uri.parse(review.url),
+                          'Could not open the review.',
                         ),
                       ),
                     ),

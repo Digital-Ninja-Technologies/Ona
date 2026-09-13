@@ -19,8 +19,7 @@ android {
         applicationId = "com.digitalninjatechnologies.ona"
         // You can update the following values to match your application needs.
         // For more information, see: https://flutter.dev/to/review-gradle-config.
-        // webview_flutter requires API 24+.
-        minSdk = 24
+        minSdk = flutter.minSdkVersion
         targetSdk = flutter.targetSdkVersion
         versionCode = flutter.versionCode
         versionName = flutter.versionName
