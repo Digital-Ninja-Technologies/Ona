@@ -8,6 +8,7 @@ import '../../core/models/place_suggestion.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/widgets/place_image.dart';
+import '../../core/widgets/place_map.dart';
 
 /// Full-detail view for an AI-suggested [PlaceSuggestion] — shown when the
 /// user taps a place card/tile on the home screen. Unlike
@@ -111,6 +112,13 @@ class PlaceDetailScreen extends StatelessWidget {
                       ],
                     ),
                   ],
+                  const SizedBox(height: 16),
+                  PlaceMapPreview(
+                    query: place.address != null
+                        ? '${place.name}, ${place.address}'
+                        : place.name,
+                    label: place.name,
+                  ),
                   const SizedBox(height: 20),
                   Text('About', style: AppTheme.fredoka(fontSize: 18)),
                   const SizedBox(height: 8),
